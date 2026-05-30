@@ -361,7 +361,7 @@ func (m tuiModel) viewDashboard() string {
 		return "Loading..."
 	}
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("🤖 SDD Memory Lite AI Dashboard\n"))
+	b.WriteString(titleStyle.Render("🤖 SDD Memory AI Dashboard\n"))
 
 	b.WriteString(fmt.Sprintf("\n  Sessions: %d", m.stats.TotalSessions))
 	b.WriteString(fmt.Sprintf("\n  Observations: %d", m.stats.TotalObservations))
