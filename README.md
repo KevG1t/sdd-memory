@@ -1,61 +1,91 @@
 # SDD Memory (Lite)
 
-Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado específicamente para dotar de memoria a largo plazo a agentes de IA (como `sdd-orchestrator`), basado en la arquitectura de sincronización por *chunks* de [Engram](https://github.com/KevG1t/engram).
+Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado específicamente para dotar de memoria a largo plazo a agentes de IA (como Cursor, Claude Code, etc.), basado en la filosofía de [Engram](https://github.com/KevG1t/engram).
 
 ## Características Arquitectónicas
 
-- **Local-First (SQLite):** Persistencia inmediata y ultrarrápida usando `better-sqlite3`.
-- **Búsqueda FTS5:** Motor de búsqueda full-text nativo de alta performance para recuperar el contexto exacto.
-- **Protocolo MCP Nativo:** Exposición limpia de herramientas a través de `stdio` para agentes inteligentes.
-- **SyncManager Libre de Conflictos:** Detección de deltas locales, compresión de *chunks* vía `zlib` (`.json.gz`), hashes criptográficos y resolución de colisiones por `revision_count`.
-- **Cero Grasita:** Sin dependencias pesadas de terceros, UIs complejas, ni evaluadores LLM semánticos que rompan la compatibilidad en Windows. Pura matemática de persistencia.
+- **Un solo ejecutable (Go):** Compilado nativamente. Sin dependencias de Node.js, npm, o Python.
+- **Local-First (SQLite):** Persistencia inmediata usando `modernc.org/sqlite` (sin requerir compiladores CGO, funciona en cualquier plataforma).
+- **Búsqueda FTS5:** Motor de búsqueda full-text nativo de alta performance para recuperar contexto exacto.
+- **TUI Elegante:** Interfaz de terminal inmersiva y fluida (basada en `bubbletea` y `lipgloss`) para explorar tu memoria.
+- **Protocolo MCP Completo:** Exposición limpia de 15 herramientas a través de `stdio` compatibles con el estándar Model Context Protocol.
 
-## Instalación Global
+---
 
-Puedes instalar el binario globalmente de forma directa desde GitHub (requiere Node.js instalado):
+## 🚀 Instalación
+
+Si tienes Go instalado, la forma más fácil de instalar es usando `go install`:
 
 ```bash
-pnpm add -g github:KevG1t/sdd-memory
+go install github.com/KevG1t/sdd-memory@latest
 ```
-*(También compatible con `npm install -g github:KevG1t/sdd-memory`)*
+
+*(Esto colocará el binario en tu carpeta `GOPATH/bin`, asegúrate de tenerla en tu variable de entorno PATH).*
 
 ### Actualización
-Para obtener la última versión fresca, simplemente vuelve a ejecutar el comando de instalación o ejecuta:
+Para actualizar a la última versión, simplemente vuelve a ejecutar el comando de instalación:
 ```bash
-pnpm update -g sdd-memory
+go install github.com/KevG1t/sdd-memory@latest
 ```
 
-## Uso y Comandos
+### Desinstalación
+Si deseas eliminar por completo SDD Memory Lite de tu sistema:
+1. Elimina el binario: `rm $(go env GOPATH)/bin/sdd-memory` (en Windows: `del $env:GOPATH\bin\sdd-memory.exe`).
+2. Elimina tu base de datos y memoria local: `rm -rf ~/.sdd-memory`.
 
-Una vez instalado, el binario `sdd-memory` estará disponible globalmente en tu terminal. Todos los datos (base de datos y chunks) se guardarán por defecto de forma segura en una carpeta oculta `.sdd-memory` dentro del directorio donde ejecutes el comando.
+---
 
-### 1. Interfaz de Usuario (TUI)
-Para inicializar la base de datos a mano, revisar el estado de sincronización o forzar el *push* a la nube, usa el menú interactivo:
+## 🎮 Uso y Comandos
+
+Todos los datos (la base de datos SQLite FTS5) se guardan por defecto de forma centralizada y segura en tu directorio de usuario: `~/.sdd-memory/local.db`.
+
+### 1. Explorador Visual (TUI)
+Para navegar por tus memorias, buscar observaciones o revisar métricas, simplemente ejecuta el comando sin argumentos en tu terminal. Esto abrirá una aplicación a pantalla completa con navegación por pestañas:
+
 ```bash
-sdd-memory tui
+sdd-memory
 ```
 
-### 2. Modo Servidor (MCP)
-Este es el comando que tu Orquestador o LLM debe ejecutar para enchufarse al motor de memoria a través de `stdio`:
+*Controles de la TUI:*
+- `Tab` / `Shift+Tab` o Flechas Izquierda/Derecha: Cambiar de pestaña (Dashboard, Search, Observations, Sessions, Setup).
+- `j` / `k` o Flechas Arriba/Abajo: Navegar por los listados.
+- `Enter`: Buscar (en la pestaña de búsqueda).
+- `q` o `Esc`: Salir.
+
+### 2. Integración con Agentes (Modo MCP)
+Este es el comando que tu IDE o agente LLM (como Cursor) debe ejecutar por detrás para enchufarse al motor de memoria usando el protocolo MCP a través de `stdio`:
+
 ```bash
 sdd-memory mcp
 ```
 
-## Herramientas MCP Expuestas
+#### ¿Cómo configurarlo en Cursor?
+1. Ve a `Cursor Settings` > `Features` > `MCP`.
+2. Añade un nuevo servidor:
+   - **Type**: `command`
+   - **Name**: `sdd-memory`
+   - **Command**: `sdd-memory mcp` (o la ruta absoluta si no lo tienes en tu PATH).
 
-El modo servidor expone 3 herramientas vitales para los agentes:
+---
 
-1. **`mem_save`**: Guarda o actualiza una observación. Si el `topic_key` (proyecto, scope, topic) ya existe, incrementa el `revision_count` automáticamente. Si es nuevo, genera un ID criptográfico seguro.
-2. **`mem_search`**: Busca conocimiento histórico usando el motor indexado FTS5.
-3. **`mem_get_observation`**: Recupera el detalle de una memoria específica por su ID.
+## 🛠️ Herramientas MCP Expuestas
 
-## Sincronización en la Nube (Próximos Pasos)
+El modo servidor expone **15 herramientas** vitales para que los agentes administren la información sin necesidad de intervención manual:
 
-El motor local ya es capaz de empaquetar, comprimir y realizar un **Push** de las memorias nuevas hacia un servidor externo. Para configurar este *endpoint*, crea un archivo `.env` o exporta las siguientes variables en tu entorno:
-
-```env
-CLOUD_ENDPOINT=http://mi-servidor-postgres.com/api/sync
-CLOUD_API_KEY=tu-secreto-super-seguro
-```
-
-> **Nota de Arquitectura:** El backend que recibe estos *chunks* y los impacta en PostgreSQL debe ser desarrollado e implementado en una aplicación de servidor separada.
+- **Búsqueda y Recuperación:**
+  - `mem_search`: Busca conocimiento histórico usando el motor FTS5.
+  - `mem_context`: Recupera activamente las sesiones y observaciones más recientes para poner al agente en contexto al inicio de una tarea.
+  - `mem_get_observation`: Recupera el detalle de una memoria específica por su ID.
+- **Gestión de Sesiones:**
+  - `mem_session_start` / `mem_session_end`: Las sesiones se guardan en su propia tabla para hacer seguimiento del trabajo en curso.
+  - `mem_session_summary`: Guarda resúmenes detallados al finalizar una iteración.
+- **Escritura y Modificación:**
+  - `mem_save`: Guarda o actualiza una observación manual.
+  - `mem_capture_passive`: Captura aprendizajes de contexto pasivamente.
+  - `mem_update`: Corrige detalles específicos de una observación existente en SQL.
+  - `mem_save_prompt`: Almacena templates y prompts útiles.
+- **Utilidades del Sistema:**
+  - `mem_current_project`: Detecta y retorna automáticamente tu directorio actual de trabajo.
+  - `mem_doctor`: Diagnósticos de estado de la base de datos.
+  - `mem_suggest_topic_key`: Utilidad para sanitizar títulos de observaciones.
+  - `mem_judge` / `mem_compare`: Aliases de compatibilidad para flujos lógicos avanzados.
