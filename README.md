@@ -12,12 +12,12 @@ Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado es
 
 ## Instalación Global
 
-Puedes instalar el binario globalmente de forma directa desde GitHub (requiere Node.js instalado):
+Puedes instalar el binario globalmente de forma directa desde GitHub (requiere Node.js instalado). Como el repositorio es público, la forma más limpia y libre de errores de SSH es usar la URL HTTPS:
 
 ```bash
-pnpm add -g github:KevG1t/sdd-memory
+pnpm add -g https://github.com/KevG1t/sdd-memory.git
 ```
-*(También compatible con `npm install -g github:KevG1t/sdd-memory`)*
+*(También compatible con `npm install -g https://github.com/KevG1t/sdd-memory.git`)*
 
 ### Actualización
 Para obtener la última versión fresca, simplemente vuelve a ejecutar el comando de instalación o ejecuta:
