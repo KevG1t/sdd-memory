@@ -7,8 +7,9 @@ import * as path from 'path';
 async function main() {
   p.intro('SDD Memory CLI');
 
-  const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'local.db');
-  const syncDir = process.env.SYNC_DIR || path.join(process.cwd(), 'sync_chunks');
+  const defaultDir = path.join(process.cwd(), '.sdd-memory');
+  const dbPath = process.env.DB_PATH || path.join(defaultDir, 'local.db');
+  const syncDir = process.env.SYNC_DIR || path.join(defaultDir, 'sync_chunks');
   const store = new LocalStore(dbPath);
 
   // Auto-initialize silently to prevent SQLite missing table errors

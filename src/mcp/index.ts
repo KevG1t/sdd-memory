@@ -134,6 +134,8 @@ export async function runMcpServer(dbPath: string) {
 }
 
 import { fileURLToPath } from 'url';
+import * as path from 'path';
 
-const dbPath = process.env.DB_PATH || 'local.db';
+const defaultDir = path.join(process.cwd(), '.sdd-memory');
+const dbPath = process.env.DB_PATH || path.join(defaultDir, 'local.db');
 runMcpServer(dbPath).catch(console.error);
