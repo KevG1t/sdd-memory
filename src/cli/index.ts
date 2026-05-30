@@ -25,6 +25,9 @@ async function main() {
   const syncDir = process.env.SYNC_DIR || path.join(process.cwd(), 'sync_chunks');
   const store = new LocalStore(dbPath);
 
+  // Auto-initialize silently to prevent SQLite missing table errors
+  await store.init();
+
   if (action === 'init') {
     const s = p.spinner();
     s.start('Initializing database...');
