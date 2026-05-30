@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": {
+    "sdd-memory": "bin/sdd-memory.js"
+  },
   "scripts": {
     "test": "vitest run",
     "build": "tsc",

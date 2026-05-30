@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
-import { LocalStore } from '../core/store/LocalStore';
-import { SyncManager } from '../core/sync/SyncManager';
-import { CloudClient } from '../core/cloud/CloudClient';
+import { LocalStore } from '../core/store/LocalStore.js';
+import { SyncManager } from '../core/sync/SyncManager.js';
+import { CloudClient } from '../core/cloud/CloudClient.js';
 import * as path from 'path';
 
 async function main() {

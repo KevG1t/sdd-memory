@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Observation, SyncMutation } from './types';
+import { Observation, SyncMutation } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

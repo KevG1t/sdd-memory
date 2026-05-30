@@ -1,6 +1,6 @@
-import { LocalStore } from '../store/LocalStore';
-import { SyncManifest } from '../store/types';
-import { CloudClient } from '../cloud/CloudClient';
+import { LocalStore } from '../store/LocalStore.js';
+import { SyncManifest } from '../store/types.js';
+import { CloudClient } from '../cloud/CloudClient.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';

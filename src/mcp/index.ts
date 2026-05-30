@@ -5,7 +5,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { LocalStore } from '../core/store/LocalStore';
+import { LocalStore } from '../core/store/LocalStore.js';
 import * as crypto from 'crypto';
 
 const TOOLS: Tool[] = [
