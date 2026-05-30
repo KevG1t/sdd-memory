@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdd-memory/internal/store"
+	"github.com/KevG1t/sdd-memory/internal/store"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"

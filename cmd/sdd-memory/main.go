@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdd-memory/internal/mcp"
-	"sdd-memory/internal/store"
+	"github.com/KevG1t/sdd-memory/internal/mcp"
+	"github.com/KevG1t/sdd-memory/internal/store"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

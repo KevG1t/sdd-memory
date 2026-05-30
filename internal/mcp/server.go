@@ -12,7 +12,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"sdd-memory/internal/store"
+	"github.com/KevG1t/sdd-memory/internal/store"
 )
 
 type Server struct {
