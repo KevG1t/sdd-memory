@@ -7,6 +7,7 @@
     "sdd-memory": "bin/sdd-memory.js"
   },
   "scripts": {
+    "prepare": "pnpm run build",
     "test": "vitest run",
     "build": "tsc",
     "mcp": "tsx src/mcp/index.ts",
