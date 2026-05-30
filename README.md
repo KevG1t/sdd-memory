@@ -17,7 +17,7 @@ Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado es
 Si tienes Go instalado, la forma más fácil de instalar es usando `go install`:
 
 ```bash
-go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
+go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@v1.0.0
 ```
 
 *(Esto colocará el binario en tu carpeta `GOPATH/bin`, asegúrate de tenerla en tu variable de entorno PATH).*
@@ -25,7 +25,7 @@ go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
 ### Actualización
 Para actualizar a la última versión, simplemente vuelve a ejecutar el comando de instalación:
 ```bash
-go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
+go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@v1.0.0
 ```
 
 ### Desinstalación
