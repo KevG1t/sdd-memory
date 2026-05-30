@@ -464,12 +464,14 @@ func (m tuiModel) viewSessions() string {
 }
 
 func (m tuiModel) viewSetup() string {
-	return titleStyle.Render("Setup Agent Plugin") + "\n\n" +
-		"To use SDD Memory Lite with Cursor, add this to your Cursor settings:\n\n" +
+	return titleStyle.Render("Configuración de Servidor MCP") + "\n\n" +
+		"Para conectar sdd-memory a tu IDE o Agentes (Cursor, Antigravity, etc.),\n" +
+		"agregá esta configuración en tu mcp_config.json:\n\n" +
 		"\"sdd-memory\": {\n" +
-		"  \"command\": \"path/to/sdd-memory.exe\",\n" +
+		"  \"command\": \"sdd-memory\",\n" +
 		"  \"args\": [\"mcp\"]\n" +
-		"}"
+		"}\n\n" +
+		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Nota: Gracias a 'go install', el comando ya está en tu PATH global.")
 }
 
 // Helper to extract a title if available
