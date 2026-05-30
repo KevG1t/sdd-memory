@@ -178,6 +178,22 @@ func (s *LocalStore) RecentObservations(limit int) ([]Observation, error) {
 	return res, nil
 }
 
+func (s *LocalStore) ObservationsBySession(sessionID string) ([]Observation, error) {
+	rows, err := s.db.Query(`SELECT id, project, scope, topic, content, revision_count, created_at, updated_at FROM observations WHERE session_id = ? ORDER BY created_at ASC`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []Observation
+	for rows.Next() {
+		obs, _ := scanObservation(rows)
+		if obs != nil {
+			res = append(res, *obs)
+		}
+	}
+	return res, nil
+}
+
 func (s *LocalStore) UpdateObservation(id, title, content, obsType, scope string) error {
 	_, err := s.db.Exec(`UPDATE observations SET topic = ?, content = ?, scope = ?, updated_at = ? WHERE id = ?`, 
 		title, content, scope, time.Now().UTC().Format(time.RFC3339), id)
