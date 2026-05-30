@@ -4,10 +4,12 @@ import { SyncManager } from '../core/sync/SyncManager.js';
 import { CloudClient } from '../core/cloud/CloudClient.js';
 import * as path from 'path';
 
+import * as os from 'os';
+
 async function main() {
   p.intro('SDD Memory CLI');
 
-  const defaultDir = path.join(process.cwd(), '.sdd-memory');
+  const defaultDir = path.join(os.homedir(), '.sdd-memory');
   const dbPath = process.env.DB_PATH || path.join(defaultDir, 'local.db');
   const syncDir = process.env.SYNC_DIR || path.join(defaultDir, 'sync_chunks');
   const store = new LocalStore(dbPath);
