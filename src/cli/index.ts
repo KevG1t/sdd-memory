@@ -14,6 +14,9 @@ async function main() {
   // Auto-initialize silently to prevent SQLite missing table errors
   await store.init();
 
+  // Initial clear for the app feel
+  console.clear();
+
   while (true) {
     const action = await p.select({
       message: 'What would you like to do?',
@@ -57,6 +60,13 @@ async function main() {
       const pending = await store.getPendingMutations();
       p.note(`There are ${pending.length} pending mutations waiting to be synced.`, 'Status');
     }
+
+    // TUI Experience: Wait for user to read, then clear and re-render
+    await p.select({
+      message: 'Press Enter to continue',
+      options: [{ value: 'back', label: 'Return to main menu' }]
+    });
+    console.clear();
   }
 }
 
