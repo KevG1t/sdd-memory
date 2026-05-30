@@ -6,6 +6,10 @@
   "bin": {
     "sdd-memory": "bin/sdd-memory.js"
   },
+  "files": [
+    "dist",
+    "bin"
+  ],
   "scripts": {
     "prepare": "pnpm run build",
     "test": "vitest run",
