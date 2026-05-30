@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -275,7 +276,9 @@ func (s *LocalStore) SearchObservations(query string, project string) ([]Observa
 		WHERE observations_fts MATCH ?`
 	
 	var args []interface{}
-	args = append(args, query)
+	// Escape the query for FTS5 by wrapping in quotes and escaping internal quotes
+	escapedQuery := "\"" + strings.ReplaceAll(query, "\"", "\"\"") + "\""
+	args = append(args, escapedQuery)
 	
 	if project != "" {
 		sqlQuery += ` AND o.project = ?`
