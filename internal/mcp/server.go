@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 	"strings"
+	"time"
 
+	"github.com/KevG1t/sdd-memory/internal/store"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/KevG1t/sdd-memory/internal/store"
 )
 
 type Server struct {
@@ -58,7 +58,7 @@ func (s *Server) registerTools() {
 
 	for _, t := range tools {
 		tool := mcp.NewTool(t.name, mcp.WithDescription(t.desc))
-		
+
 		tool.InputSchema = mcp.ToolInputSchema{
 			Type: "object",
 			Properties: map[string]interface{}{
@@ -83,13 +83,13 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 	if !ok {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
-	
+
 	// Default to general project if empty
 	project, _ := args["project"].(string)
 	if project == "" {
 		project = "default"
 	}
-	
+
 	scope, _ := args["scope"].(string)
 	if scope == "" {
 		scope = "project"
@@ -107,7 +107,7 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	existing, _ := s.store.FindByTopicKey(project, scope, topic)
-	
+
 	obs := &store.Observation{
 		Project:       project,
 		Scope:         scope,
@@ -134,8 +134,8 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 
 	// In Lite version we just return the saved ID, no conflict detection
 	resp := map[string]interface{}{
-		"status": "saved",
-		"id": obs.ID,
+		"status":            "saved",
+		"id":                obs.ID,
 		"judgment_required": false,
 	}
 	b, _ := json.Marshal(resp)
@@ -190,11 +190,11 @@ func (s *Server) handleMemGetObservation(ctx context.Context, request mcp.CallTo
 func (s *Server) handleMemCapturePassive(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, _ := request.Params.Arguments.(map[string]interface{})
 	content, _ := args["content"].(string)
-	
+
 	if content == "" {
 		return mcp.NewToolResultError("content required"), nil
 	}
-	
+
 	args["topic"] = "passive-capture-" + time.Now().Format("20060102150405")
 	return s.handleMemSave(ctx, request)
 }
@@ -208,9 +208,9 @@ func (s *Server) handleMemContext(ctx context.Context, request mcp.CallToolReque
 	// Return recent sessions and observations
 	sessions, _ := s.store.RecentSessions(5)
 	observations, _ := s.store.RecentObservations(10)
-	
+
 	resp := map[string]interface{}{
-		"recent_sessions": sessions,
+		"recent_sessions":     sessions,
 		"recent_observations": observations,
 	}
 	b, _ := json.MarshalIndent(resp, "", "  ")
@@ -221,10 +221,10 @@ func (s *Server) handleMemCurrentProject(ctx context.Context, request mcp.CallTo
 	cwd, _ := os.Getwd()
 	parts := strings.Split(cwd, string(os.PathSeparator))
 	proj := parts[len(parts)-1]
-	
+
 	resp := map[string]string{
 		"project": proj,
-		"path": cwd,
+		"path":    cwd,
 	}
 	b, _ := json.Marshal(resp)
 	return mcp.NewToolResultText(string(b)), nil
@@ -233,7 +233,7 @@ func (s *Server) handleMemCurrentProject(ctx context.Context, request mcp.CallTo
 func (s *Server) handleMemDoctor(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	resp := map[string]string{
 		"status": "healthy",
-		"mode": "lite",
+		"mode":   "lite",
 	}
 	b, _ := json.Marshal(resp)
 	return mcp.NewToolResultText(string(b)), nil
@@ -258,7 +258,7 @@ func (s *Server) handleMemSessionStart(ctx context.Context, request mcp.CallTool
 	if project == "" {
 		project = "default"
 	}
-	
+
 	if err := s.store.CreateSession(id, project); err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -269,7 +269,7 @@ func (s *Server) handleMemSessionEnd(ctx context.Context, request mcp.CallToolRe
 	args, _ := request.Params.Arguments.(map[string]interface{})
 	id, _ := args["id"].(string)
 	summary, _ := args["summary"].(string)
-	
+
 	if id != "" && summary != "" {
 		s.store.UpdateSessionSummary(id, summary)
 	}
@@ -280,7 +280,7 @@ func (s *Server) handleMemSessionSummary(ctx context.Context, request mcp.CallTo
 	args, _ := request.Params.Arguments.(map[string]interface{})
 	id, _ := args["session_id"].(string)
 	content, _ := args["content"].(string)
-	
+
 	if id != "" {
 		s.store.UpdateSessionSummary(id, content)
 	}
@@ -290,7 +290,7 @@ func (s *Server) handleMemSessionSummary(ctx context.Context, request mcp.CallTo
 func (s *Server) handleMemSuggestTopicKey(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, _ := request.Params.Arguments.(map[string]interface{})
 	title, _ := args["title"].(string)
-	
+
 	key := strings.ToLower(strings.ReplaceAll(title, " ", "-"))
 	resp := map[string]string{"topic_key": key}
 	b, _ := json.Marshal(resp)
@@ -304,7 +304,7 @@ func (s *Server) handleMemUpdate(ctx context.Context, request mcp.CallToolReques
 	content, _ := args["content"].(string)
 	obsType, _ := args["type"].(string)
 	scope, _ := args["scope"].(string)
-	
+
 	if err := s.store.UpdateObservation(id, title, content, obsType, scope); err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

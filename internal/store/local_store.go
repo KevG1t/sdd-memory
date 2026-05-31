@@ -68,6 +68,10 @@ func (s *LocalStore) Init() error {
 			timestamp TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'chunked', 'synced'))
 		);`,
+		`CREATE TABLE IF NOT EXISTS sync_state (
+			project TEXT PRIMARY KEY,
+			last_mutation_id INTEGER NOT NULL DEFAULT 0
+		);`,
 	}
 
 	for _, q := range queries {
@@ -111,13 +115,69 @@ func (s *LocalStore) FindByTopicKey(project, scope, topic string) (*Observation,
 	return scanObservation(row)
 }
 
+func (s *LocalStore) GetLastMutationID(project string) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(`SELECT last_mutation_id FROM sync_state WHERE project = ?`, project).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	return id, err
+}
+
+func (s *LocalStore) SetLastMutationID(project string, id int64) error {
+	_, err := s.db.Exec(`
+		INSERT INTO sync_state (project, last_mutation_id)
+		VALUES (?, ?)
+		ON CONFLICT(project) DO UPDATE SET last_mutation_id = excluded.last_mutation_id
+	`, project, id)
+	return err
+}
+
+func (s *LocalStore) GetPendingMutations() ([]SyncMutation, error) {
+	rows, err := s.db.Query(`SELECT id, table_name, record_id, operation, payload FROM sync_mutations WHERE status = 'pending' ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []SyncMutation
+	for rows.Next() {
+		var mut SyncMutation
+		var payload *string
+		if err := rows.Scan(&mut.ID, &mut.TableName, &mut.RecordID, &mut.Operation, &payload); err != nil {
+			return nil, err
+		}
+		if payload != nil {
+			mut.Payload = *payload
+		}
+		res = append(res, mut)
+	}
+	return res, nil
+}
+
+func (s *LocalStore) MarkMutationsSynced(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	args := make([]interface{}, len(ids))
+	placeholders := make([]string, len(ids))
+	for i, id := range ids {
+		args[i] = id
+		placeholders[i] = "?"
+	}
+	query := fmt.Sprintf(`UPDATE sync_mutations SET status = 'synced' WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := s.db.Exec(query, args...)
+	return err
+}
+
+
 // Stats returns system statistics
 func (s *LocalStore) Stats() (*Stats, error) {
 	stats := &Stats{}
 	s.db.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&stats.TotalSessions)
 	s.db.QueryRow(`SELECT COUNT(*) FROM observations`).Scan(&stats.TotalObservations)
 	s.db.QueryRow(`SELECT COUNT(*) FROM observations WHERE topic = 'user-prompt'`).Scan(&stats.TotalPrompts)
-	
+
 	rows, err := s.db.Query(`SELECT DISTINCT project FROM observations`)
 	if err == nil {
 		defer rows.Close()
@@ -196,7 +256,7 @@ func (s *LocalStore) ObservationsBySession(sessionID string) ([]Observation, err
 }
 
 func (s *LocalStore) UpdateObservation(id, title, content, obsType, scope string) error {
-	_, err := s.db.Exec(`UPDATE observations SET topic = ?, content = ?, scope = ?, updated_at = ? WHERE id = ?`, 
+	_, err := s.db.Exec(`UPDATE observations SET topic = ?, content = ?, scope = ?, updated_at = ? WHERE id = ?`,
 		title, content, scope, time.Now().UTC().Format(time.RFC3339), id)
 	// We should also update FTS but keeping it simple for the Lite version unless requested
 	return err
@@ -268,18 +328,87 @@ func (s *LocalStore) SaveObservation(obs *Observation) error {
 	return tx.Commit()
 }
 
+func (s *LocalStore) SaveObservationFromSync(obs *Observation) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var existingID string
+	err = tx.QueryRow(`SELECT id FROM observations WHERE id = ?`, obs.ID).Scan(&existingID)
+	exists := err != sql.ErrNoRows
+
+	cAt := obs.CreatedAt.Format(time.RFC3339)
+	uAt := obs.UpdatedAt.Format(time.RFC3339)
+
+	_, err = tx.Exec(`
+		INSERT INTO observations (id, session_id, project, scope, topic, content, revision_count, created_at, updated_at)
+		VALUES (?, 'remote', ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			project = excluded.project,
+			scope = excluded.scope,
+			topic = excluded.topic,
+			content = excluded.content,
+			revision_count = excluded.revision_count,
+			updated_at = excluded.updated_at
+	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content, obs.RevisionCount, cAt, uAt)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		_, err = tx.Exec(`DELETE FROM observations_fts WHERE rowid = (SELECT rowid FROM observations WHERE id = ?)`, obs.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO observations_fts (rowid, project, scope, topic, content)
+		VALUES ((SELECT rowid FROM observations WHERE id = ?), ?, ?, ?, ?)
+	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content)
+	if err != nil {
+		return err
+	}
+
+	// BYPASS mutation logging
+	return tx.Commit()
+}
+
+func (s *LocalStore) DeleteObservationFromSync(id string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`DELETE FROM observations_fts WHERE rowid = (SELECT rowid FROM observations WHERE id = ?)`, id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM observations WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+
+	// BYPASS mutation logging
+	return tx.Commit()
+}
+
 func (s *LocalStore) SearchObservations(query string, project string) ([]Observation, error) {
 	sqlQuery := `
 		SELECT o.id, o.project, o.scope, o.topic, o.content, o.revision_count, o.created_at, o.updated_at 
 		FROM observations_fts fts
 		JOIN observations o ON o.rowid = fts.rowid
 		WHERE observations_fts MATCH ?`
-	
+
 	var args []interface{}
 	// Escape the query for FTS5 by wrapping in quotes and escaping internal quotes
 	escapedQuery := "\"" + strings.ReplaceAll(query, "\"", "\"\"") + "\""
 	args = append(args, escapedQuery)
-	
+
 	if project != "" {
 		sqlQuery += ` AND o.project = ?`
 		args = append(args, project)

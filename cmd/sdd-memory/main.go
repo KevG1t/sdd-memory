@@ -62,7 +62,7 @@ func runCLI() {
 		return
 	}
 	defer localStore.Close()
-	
+
 	// Ensure table schema is up to date
 	if err := localStore.Init(); err != nil {
 		fmt.Printf("Error initializing store: %v\n", err)

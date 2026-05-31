@@ -196,7 +196,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
+
 		// Focus search input when typing in search tab and not focused
 		if m.state == viewTabs && m.activeTab == 1 && !m.searchInput.Focused() {
 			if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace {
@@ -319,7 +319,7 @@ func (m tuiModel) View() string {
 	} else if m.state == viewSessionObservations {
 		b.WriteString(titleStyle.Render(fmt.Sprintf("Observations for Session: %s", m.selectedSession.Project)))
 		b.WriteString("\n\n")
-		
+
 		if len(m.sessionObservations) == 0 {
 			b.WriteString("No observations found for this session.")
 		} else {
@@ -400,7 +400,7 @@ func (m tuiModel) viewSearch() string {
 			} else if m.searchCursor == i {
 				cursor = "•" // Unfocused indicator
 			}
-			
+
 			title := getTitle(o)
 			b.WriteString(style.Render(fmt.Sprintf("%s [%s] %s (Proj: %s)", cursor, o.Topic, title, o.Project)) + "\n")
 		}
