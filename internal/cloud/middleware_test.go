@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"context"
 )
 
 func TestRequireAuth(t *testing.T) {

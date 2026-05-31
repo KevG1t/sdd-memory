@@ -26,6 +26,14 @@ func (s *Server) Start(port string) error {
 
 	mux.HandleFunc("/health", s.handleHealth())
 
+	// Sync routes require authentication and project authorization
+	syncMux := http.NewServeMux()
+	syncMux.HandleFunc("/sync/push", s.handlePush())
+	syncMux.HandleFunc("/sync/pull", s.handlePull())
+
+	// Route all /sync/ traffic through the middleware chain
+	mux.Handle("/sync/", RequireAuth(RequireProject(s.db, syncMux.ServeHTTP)))
+
 	srv := &http.Server{
 		Addr:         ":" + port,
 		Handler:      mux,
