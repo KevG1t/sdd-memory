@@ -3,13 +3,18 @@ package cloud
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/KevG1t/sdd-memory/internal/store"
+)
+
+var (
+	ErrUnauthorized = errors.New("unauthorized: invalid or missing token")
+	ErrForbidden    = errors.New("forbidden: insufficient permissions for project")
 )
 
 type Client struct {
@@ -102,6 +107,12 @@ func (c *Client) Push() error {
 	req.Header.Set("Content-Type", "application/json")
 
 	err = c.doRequestWithBackoff(req, func(resp *http.Response) error {
+		if resp.StatusCode == http.StatusUnauthorized {
+			return ErrUnauthorized
+		}
+		if resp.StatusCode == http.StatusForbidden {
+			return ErrForbidden
+		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 		}
@@ -130,6 +141,12 @@ func (c *Client) Pull() error {
 
 	var pullResp PullResponse
 	err = c.doRequestWithBackoff(req, func(resp *http.Response) error {
+		if resp.StatusCode == http.StatusUnauthorized {
+			return ErrUnauthorized
+		}
+		if resp.StatusCode == http.StatusForbidden {
+			return ErrForbidden
+		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 		}
@@ -174,14 +191,16 @@ func (c *Client) doRequestWithBackoff(req *http.Request, handler func(*http.Resp
 	backoff := 1 * time.Second
 
 	for i := 0; i <= maxRetries; i++ {
-		// Clone request body if we need to retry
-		var reqBody []byte
-		if req.Body != nil && req.GetBody == nil {
-			reqBody, _ = io.ReadAll(req.Body)
-			req.Body = io.NopCloser(bytes.NewReader(reqBody))
-			req.GetBody = func() (io.ReadCloser, error) {
-				return io.NopCloser(bytes.NewReader(reqBody)), nil
+		// Reset request body if we need to retry
+		if i > 0 && req.Body != nil {
+			if req.GetBody == nil {
+				return fmt.Errorf("request cannot be retried: GetBody is nil")
 			}
+			body, err := req.GetBody()
+			if err != nil {
+				return fmt.Errorf("failed to get request body for retry: %w", err)
+			}
+			req.Body = body
 		}
 
 		resp, err := c.HTTPClient.Do(req)
