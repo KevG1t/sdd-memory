@@ -68,6 +68,58 @@ sdd-memory mcp
 
 ---
 
+## ☁️ Sincronización en la Nube (Cloud Sync)
+
+`sdd-memory` cuenta con un motor propio para sincronizar tu memoria local con un servidor central. Esto es súper útil si querés tener tu memoria de IA respaldada de forma segura o compartida entre varias computadoras.
+
+El sistema es muy sencillo de entender y se divide en dos partes: **El Servidor** (la bóveda central) y **El Cliente** (tu máquina local de todos los días).
+
+### 1. Levantar el Servidor (Tu Nube Privada)
+Si querés levantar tu propia nube en un VPS, necesitás una base de datos PostgreSQL. (Podés usar el archivo `docker-compose.yml` que viene en el proyecto para levantarla con un solo comando).
+
+Una vez que tengas la base de datos, levantá el servidor inyectando estas credenciales por seguridad:
+
+```bash
+# Variables de conexión a PostgreSQL
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGUSER="sdd_user"
+export PGPASSWORD="sdd_password"
+export PGDATABASE="sdd_cloud"
+
+# Tus credenciales de seguridad de SDD Memory
+export SDD_CLOUD_SECRET="tu-contraseña-maestra"
+export SDD_ALLOWED_PROJECTS="KevG1t/mi-proyecto"
+
+# Levantar el router HTTP
+sdd-memory cloud serve
+```
+
+### 2. Usar el Cliente (Tu máquina local)
+En tu computadora de desarrollo, tu base SQLite local siempre es la dueña de la verdad. Para engancharla con tu nuevo servidor, seguí estos tres pasos súper fáciles:
+
+1. **Configurar la conexión**:
+   Decile a tu compu dónde vive tu nube y cuál es la clave de acceso.
+   ```bash
+   export SDD_CLOUD_SECRET="tu-contraseña-maestra"
+   sdd-memory cloud config --server http://tuservidor.com:18080
+   ```
+
+2. **Autorizar tu proyecto (Enroll)**:
+   Para que no sincronices proyectos por accidente, tenés que enrolar el directorio actual en la nube.
+   ```bash
+   sdd-memory cloud enroll KevG1t/mi-proyecto
+   ```
+
+3. **La Sincronización (Sync)**:
+   Cuando termines de trabajar y quieras hacer *backup* o traer cambios de tu otra máquina, simplemente ejecutá:
+   ```bash
+   sdd-memory cloud sync KevG1t/mi-proyecto
+   ```
+   *¿Qué hace esto por detrás?* Primero baja inteligentemente los datos nuevos desde el servidor y luego sube tus cambios locales usando un sistema de reintentos automáticos por si se te corta el WiFi a la mitad de la carga.
+
+---
+
 ## 🛠️ Herramientas MCP Expuestas
 
 El modo servidor expone **15 herramientas** vitales para que los agentes administren la información sin necesidad de intervención manual:

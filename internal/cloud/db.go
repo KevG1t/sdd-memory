@@ -68,7 +68,7 @@ func InitSchema(db *sql.DB) error {
 	);
 
 	CREATE TABLE IF NOT EXISTS cloud_chunks (
-		id UUID PRIMARY KEY,
+		id VARCHAR(255) PRIMARY KEY,
 		project VARCHAR(255) NOT NULL,
 		data JSONB NOT NULL,
 		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -78,7 +78,7 @@ func InitSchema(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS cloud_mutations (
 		id BIGSERIAL PRIMARY KEY,
 		project VARCHAR(255) NOT NULL,
-		chunk_id UUID NOT NULL,
+		chunk_id VARCHAR(255) NOT NULL,
 		operation VARCHAR(50) NOT NULL,
 		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 	);
