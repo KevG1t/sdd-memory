@@ -1,6 +1,6 @@
 {
   "name": "sdd-memory-kevg1t",
-  "version": "1.0.0",
+  "version": "1.2.10",
   "description": "Ultra-fast Local-First persistence engine designed for long-term memory in AI agents",
   "main": "bin/sdd-memory.js",
   "bin": {
