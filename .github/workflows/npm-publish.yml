@@ -1,0 +1,83 @@
+name: Publish npm package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Get version from tag
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Package version: $VERSION"
+    
+    - name: Update package.json version
+      run: |
+        cd npm-package
+        # Actualizar la versión en package.json
+        npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+        echo "Updated package.json to version ${{ steps.get_version.outputs.VERSION }}"
+    
+    - name: Install dependencies
+      run: |
+        cd npm-package
+        npm ci || npm install
+    
+    - name: Verify package structure
+      run: |
+        cd npm-package
+        echo "Package contents:"
+        ls -la
+        echo ""
+        echo "Scripts directory:"
+        ls -la scripts/
+        echo ""
+        echo "Bin directory:" 
+        ls -la bin/
+        echo ""
+        echo "package.json content:"
+        cat package.json
+    
+    - name: Publish to npm (dry run)
+      run: |
+        cd npm-package
+        npm publish --dry-run --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Publish to npm
+      run: |
+        cd npm-package
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Create success comment
+      run: |
+        echo "✅ Successfully published @kevg1t/sdd-memory@${{ steps.get_version.outputs.VERSION }} to npm"
+        echo ""
+        echo "🚀 Install with:"
+        echo "   npm install -g @kevg1t/sdd-memory"
+        echo "   npx @kevg1t/sdd-memory"
+        echo ""
+        echo "🔗 Package URL: https://www.npmjs.com/package/@kevg1t/sdd-memory"
