@@ -11,7 +11,8 @@
   },
   "files": [
     "bin/",
-    "scripts/"
+    "scripts/",
+    "dist/"
   ],
   "keywords": [
     "ai",

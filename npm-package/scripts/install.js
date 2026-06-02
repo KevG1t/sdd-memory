@@ -119,49 +119,48 @@ function tryGlobalInstall(sourcePath, platformInfo) {
 }
 
 /**
- * Instala el binario de sdd-memory
+ * Instala el binario de sdd-memory usando los binarios pre-incluidos
  */
-async function install() {
+function install() {
   try {
     console.log('🔍 Detecting platform...');
     const platformInfo = detectPlatform();
     console.log(`📱 Platform: ${platformInfo.platform}-${platformInfo.arch}`);
     console.log(`📦 Binary: ${platformInfo.binaryName}`);
     
-    console.log('🌐 Fetching latest release info...');
-    const release = await getLatestRelease();
-    console.log(`🏷️  Latest version: ${release.tag_name}`);
+    // Buscar el binario pre-incluido
+    const distDir = path.join(__dirname, '..', 'dist');
+    const possibleBinaries = [
+      platformInfo.binaryName,
+      getSimpleBinaryName(platformInfo.platform)
+    ];
     
-    // Buscar el asset correcto
-    const asset = release.assets.find(a => 
-      a.name === platformInfo.binaryName || 
-      a.name === getSimpleBinaryName(platformInfo.platform)
-    );
+    let sourceBinary = null;
+    for (const binaryName of possibleBinaries) {
+      const binaryPath = path.join(distDir, binaryName);
+      if (fs.existsSync(binaryPath)) {
+        sourceBinary = binaryPath;
+        break;
+      }
+    }
     
-    if (!asset) {
+    if (!sourceBinary) {
+      console.error('❌ Pre-compiled binary not found for your platform');
+      console.error('📁 Available binaries:');
+      if (fs.existsSync(distDir)) {
+        fs.readdirSync(distDir).forEach(file => {
+          console.error(`   - ${file}`);
+        });
+      } else {
+        console.error('   No dist directory found');
+      }
       throw new Error(`Binary not found for ${platformInfo.platform}-${platformInfo.arch}`);
     }
     
-    // Crear directorio de destino
-    const binDir = path.join(__dirname, '..', 'dist');
-    if (!fs.existsSync(binDir)) {
-      fs.mkdirSync(binDir, { recursive: true });
-    }
-    
-    const binaryPath = path.join(binDir, platformInfo.isWindows ? 'sdd-memory.exe' : 'sdd-memory');
-    
-    console.log(`⬇️  Downloading ${asset.name}...`);
-    await downloadFile(asset.browser_download_url, binaryPath);
-    
-    // Hacer ejecutable en sistemas Unix
-    if (!platformInfo.isWindows) {
-      makeExecutable(binaryPath);
-    }
-    
-    console.log(`✅ sdd-memory installed successfully at: ${binaryPath}`);
+    console.log(`✅ Found pre-compiled binary: ${path.basename(sourceBinary)}`);
     
     // Intentar instalación global
-    const globalInstalled = tryGlobalInstall(binaryPath, platformInfo);
+    const globalInstalled = tryGlobalInstall(sourceBinary, platformInfo);
     
     console.log('');
     console.log('🚀 You can now run:');
