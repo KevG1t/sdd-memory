@@ -1,7 +1,7 @@
 {
   "name": "@kevg1t/sdd-memory",
   "version": "1.0.0",
-  "description": "Ultra-fast Local-First persistence engine designed for long-term memory in AI agents",
+  "description": "Ultra-fast Local-First persistence engine designed for long-term memory in AI agents with npm support",
   "main": "bin/sdd-memory.js",
   "bin": {
     "sdd-memory": "./bin/sdd-memory.js"
