@@ -8,7 +8,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -94,7 +94,7 @@ jobs:
         cd npm-package
         # Actualizar versión para coincidir con el tag de Git
         npm version ${{ steps.version.outputs.NEW_VERSION }} --no-git-tag-version --allow-same-version
-        npm publish
+        npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     
