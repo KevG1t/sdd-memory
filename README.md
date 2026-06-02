@@ -40,6 +40,8 @@ npx @kevg1t/sdd-memory
 npm install -g @kevg1t/sdd-memory
 ```
 
+**Nota:** Los paquetes npm se publican automáticamente con cada release. Puedes usar `npx` para siempre ejecutar la última versión sin necesidad de instalación.
+
 ### 3. Descarga Manual
 
 Descarga el binario para tu plataforma desde la [página de releases](https://github.com/KevG1t/sdd-memory/releases/latest):
