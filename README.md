@@ -53,9 +53,39 @@ go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
 - **Go install**: `go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest`
 
 ### Desinstalación
-Si deseas eliminar por completo SDD Memory de tu sistema:
-1. Elimina el binario de tu PATH
-2. Elimina tu base de datos y memoria local: `rm -rf ~/.sdd-memory`
+
+Tienes varias opciones para desinstalar SDD Memory:
+
+#### 1. Desinstalación Automática (Recomendada)
+
+**Linux/macOS:**
+```bash
+curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/master/uninstall.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/uninstall.ps1 | iex
+```
+
+#### 2. Desinstalación Manual
+
+Si prefieres hacerlo manualmente:
+1. **Elimina el binario:**
+   ```bash
+   rm ~/.local/bin/sdd-memory        # Linux/macOS
+   # O desde donde lo hayas instalado
+   ```
+2. **Elimina los datos (opcional):**
+   ```bash
+   rm -rf ~/.sdd-memory              # Tu base de datos local
+   ```
+
+#### 3. Solo eliminar datos
+Si solo quieres limpiar la base de datos pero mantener el programa:
+```bash
+rm -rf ~/.sdd-memory
+```
 
 ---
 
