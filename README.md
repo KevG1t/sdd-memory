@@ -32,12 +32,12 @@ irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.ps1 | iex
 
 **Ejecución directa (sin instalación):**
 ```bash
-npx @kevg1t/sdd-memory
+npx sdd-memory-kevg1t
 ```
 
 **Instalación global:**
 ```bash
-npm install -g @kevg1t/sdd-memory
+npm install -g sdd-memory-kevg1t
 ```
 
 **Nota:** Los paquetes npm se publican automáticamente con cada release. Puedes usar `npx` para siempre ejecutar la última versión sin necesidad de instalación.
@@ -64,7 +64,7 @@ go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
 
 ### Actualización
 - **Instalación rápida**: Vuelve a ejecutar el script de instalación
-- **npm**: `npm update -g @kevg1t/sdd-memory`
+- **npm**: `npm update -g sdd-memory-kevg1t`
 - **Go install**: `go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest`
 
 ### Desinstalación

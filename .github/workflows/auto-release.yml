@@ -130,7 +130,7 @@ jobs:
           
           #### 4. NPM Install
           ```bash
-          npx @kevg1t/sdd-memory
+          npx sdd-memory-kevg1t
           ```
           
           #### 5. Go Install (if you have Go)
