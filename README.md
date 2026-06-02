@@ -14,24 +14,48 @@ Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado es
 
 ## 🚀 Instalación
 
-Si tienes Go instalado, la forma más fácil de instalar es usando `go install`:
+Elige el método que prefieras:
+
+### 1. Instalación Rápida (Recomendada)
+
+**Linux/macOS:**
+```bash
+curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.ps1 | iex
+```
+
+### 2. Descarga Manual
+
+Descarga el binario para tu plataforma desde la [página de releases](https://github.com/KevG1t/sdd-memory/releases/latest):
+
+- **Linux**: `sdd-memory-linux`
+- **macOS**: `sdd-memory-macos` 
+- **Windows**: `sdd-memory-windows.exe`
+
+Luego colócalo en tu PATH.
+
+### 3. Instalación con Go
+
+Si tienes Go instalado:
 
 ```bash
-go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@v1.0.0
+go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
 ```
 
 *(Esto colocará el binario en tu carpeta `GOPATH/bin`, asegúrate de tenerla en tu variable de entorno PATH).*
 
 ### Actualización
-Para actualizar a la última versión, simplemente vuelve a ejecutar el comando de instalación:
-```bash
-go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@v1.0.0
-```
+- **Instalación rápida**: Vuelve a ejecutar el script de instalación
+- **Go install**: `go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest`
 
 ### Desinstalación
-Si deseas eliminar por completo SDD Memory Lite de tu sistema:
-1. Elimina el binario: `rm $(go env GOPATH)/bin/sdd-memory` (en Windows: `del $env:GOPATH\bin\sdd-memory.exe`).
-2. Elimina tu base de datos y memoria local: `rm -rf ~/.sdd-memory`.
+Si deseas eliminar por completo SDD Memory de tu sistema:
+1. Elimina el binario de tu PATH
+2. Elimina tu base de datos y memoria local: `rm -rf ~/.sdd-memory`
 
 ---
 
