@@ -34,12 +34,18 @@ function detectPlatform() {
   
   const binaryName = platformMap[platform][arch];
   const isWindows = platform === 'win32';
+  const isDarwin = platform === 'darwin';
+  const isLinux = platform === 'linux';
+  const isArm64 = arch === 'arm64';
   
   return {
     platform,
     arch,
     binaryName,
     isWindows,
+    isDarwin,
+    isLinux,
+    isArm64,
     downloadUrl: null // Se establecerá en install.js
   };
 }
