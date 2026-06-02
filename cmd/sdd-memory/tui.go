@@ -12,14 +12,25 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Claude Style Colors
 var (
-	activeTabStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true).Border(lipgloss.NormalBorder(), false, false, true, false).BorderForeground(lipgloss.Color("62")).Padding(0, 1)
-	inactiveTabStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Padding(0, 1)
-	titleStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true).MarginBottom(1)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(2)
-	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("62")).PaddingLeft(0)
-	helpStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).MarginTop(1)
-	headerStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).MarginBottom(1).MarginTop(1)
+	claudeOrange = lipgloss.Color("#FF6B35")
+	claudeBlue   = lipgloss.Color("#4A90E2")
+	claudeGray   = lipgloss.Color("#8E8E93")
+	claudeDark   = lipgloss.Color("#2C2C2E")
+)
+
+// Claude-styled components
+var (
+	activeTabStyle    = lipgloss.NewStyle().Foreground(claudeOrange).Bold(true).Border(lipgloss.NormalBorder(), false, false, true, false).BorderForeground(claudeOrange).Padding(0, 1)
+	inactiveTabStyle  = lipgloss.NewStyle().Foreground(claudeGray).Padding(0, 1)
+	titleStyle        = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true).MarginBottom(1)
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(2).Foreground(claudeDark)
+	selectedItemStyle = lipgloss.NewStyle().Foreground(claudeOrange).PaddingLeft(0).Bold(true)
+	helpStyle         = lipgloss.NewStyle().Foreground(claudeGray).MarginTop(1)
+	headerStyle       = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true).MarginBottom(1).MarginTop(1)
+	logoStyle         = lipgloss.NewStyle().Foreground(claudeOrange).Bold(true)
+	subtitleStyle     = lipgloss.NewStyle().Foreground(claudeGray)
 )
 
 type viewState int
@@ -352,7 +363,7 @@ func formatObservation(o store.Observation) string {
 	b.WriteString(fmt.Sprintf("Scope:     %s\n", o.Scope))
 	b.WriteString(fmt.Sprintf("Updated:   %s\n", o.UpdatedAt.Local().Format("2006-01-02 15:04:05")))
 	b.WriteString("\nContent:\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render(o.Content))
+	b.WriteString(lipgloss.NewStyle().Foreground(claudeDark).Render(o.Content))
 	return b.String()
 }
 
@@ -361,9 +372,24 @@ func (m tuiModel) viewDashboard() string {
 		return "Loading..."
 	}
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("🤖 SDD Memory AI Dashboard\n"))
 
-	b.WriteString(fmt.Sprintf("\n  Sessions: %d", m.stats.TotalSessions))
+	// Claude-style logo
+	logo := `
+   ╭─────────────────────────────────────────╮
+   │  ███████ ██████  ██████      ███    ███ │
+   │  ██      ██   ██ ██   ██     ████  ████ │
+   │  ███████ ██   ██ ██   ██     ██ ████ ██ │
+   │       ██ ██   ██ ██   ██     ██  ██  ██ │
+   │  ███████ ██████  ██████      ██      ██ │
+   ╰─────────────────────────────────────────╯
+   `
+	b.WriteString(logoStyle.Render(logo))
+	b.WriteString("\n")
+	b.WriteString(titleStyle.Render("🧠 Smart Development Documentation Memory"))
+	b.WriteString("\n")
+	b.WriteString(subtitleStyle.Render("Powered by Claude AI"))
+
+	b.WriteString(fmt.Sprintf("\n\n  Sessions: %d", m.stats.TotalSessions))
 	b.WriteString(fmt.Sprintf("\n  Observations: %d", m.stats.TotalObservations))
 	b.WriteString(fmt.Sprintf("\n  Total User Prompts: %d", m.stats.TotalPrompts))
 
@@ -381,7 +407,7 @@ func (m tuiModel) viewDashboard() string {
 
 func (m tuiModel) viewSearch() string {
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("Search Memories\n"))
+	b.WriteString(titleStyle.Render("🔍 Search Memories\n"))
 	b.WriteString(m.searchInput.View() + "\n\n")
 
 	if m.searchError != nil {
@@ -417,7 +443,7 @@ func (m tuiModel) viewObservations() string {
 		return "No observations yet."
 	}
 	var s strings.Builder
-	s.WriteString(titleStyle.Render("Recent Observations") + "\n")
+	s.WriteString(titleStyle.Render("📝 Recent Observations") + "\n")
 
 	for i, o := range m.observations {
 		cursor := " "
@@ -438,7 +464,7 @@ func (m tuiModel) viewSessions() string {
 		return "No sessions yet."
 	}
 	var s strings.Builder
-	s.WriteString(titleStyle.Render("Recent Sessions") + "\n")
+	s.WriteString(titleStyle.Render("🔄 Recent Sessions") + "\n")
 
 	for i, sess := range m.sessions {
 		cursor := " "
@@ -463,14 +489,14 @@ func (m tuiModel) viewSessions() string {
 }
 
 func (m tuiModel) viewSetup() string {
-	return titleStyle.Render("Configuración de Servidor MCP") + "\n\n" +
+	return titleStyle.Render("⚙️  Configuración de Servidor MCP") + "\n\n" +
 		"Para conectar sdd-memory a tu IDE o Agentes (Cursor, Antigravity, etc.),\n" +
 		"agregá esta configuración en tu mcp_config.json:\n\n" +
 		"\"sdd-memory\": {\n" +
 		"  \"command\": \"sdd-memory\",\n" +
 		"  \"args\": [\"mcp\"]\n" +
 		"}\n\n" +
-		lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Nota: Gracias a 'go install', el comando ya está en tu PATH global.")
+		subtitleStyle.Render("Nota: Gracias a 'go install', el comando ya está en tu PATH global.")
 }
 
 // Helper to extract a title if available
