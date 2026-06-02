@@ -83,7 +83,7 @@ Este es el comando que tu IDE o agente LLM (como Cursor) debe ejecutar por detr�
 sdd-memory mcp
 ```
 
-#### ¿Cómo configurarlo en Cursor?
+#### Cómo configurarlo en Cursor?
 1. Ve a `Cursor Settings` > `Features` > `MCP`.
 2. Añade un nuevo servidor:
    - **Type**: `command`
