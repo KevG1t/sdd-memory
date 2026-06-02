@@ -20,12 +20,12 @@ Elige el método que prefieras:
 
 **Linux/macOS:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.ps1 | iex
 ```
 
 ### 2. Descarga Manual
@@ -114,11 +114,45 @@ sdd-memory mcp
 ```
 
 #### Cómo configurarlo en Cursor?
-1. Ve a `Cursor Settings` > `Features` > `MCP`.
-2. Añade un nuevo servidor:
-   - **Type**: `command`
-   - **Name**: `sdd-memory`
-   - **Command**: `sdd-memory mcp` (o la ruta absoluta si no lo tienes en tu PATH).
+
+1. **Localiza tu archivo de configuración MCP:**
+   - **Linux/macOS**: `~/.cursor/mcp_config.json`
+   - **Windows**: `%APPDATA%\Cursor\mcp_config.json`
+
+2. **Añade sdd-memory a la configuración:**
+   ```json
+   {
+     "mcpServers": {
+       "sdd-memory": {
+         "command": "sdd-memory",
+         "args": ["mcp"]
+       }
+     }
+   }
+   ```
+
+3. **Alternativamente, usando la UI de Cursor:**
+   - Ve a `Cursor Settings` > `Features` > `MCP`
+   - Añade un nuevo servidor:
+     - **Type**: `command`
+     - **Name**: `sdd-memory`
+     - **Command**: `sdd-memory mcp` (o la ruta absoluta si no lo tienes en tu PATH)
+
+#### Configuración para otros IDEs
+
+**Claude Code:**
+Añade a tu archivo de configuración MCP:
+```json
+{
+  "sdd-memory": {
+    "command": "sdd-memory",
+    "args": ["mcp"]
+  }
+}
+```
+
+**Otros agentes MCP:**
+La configuración es similar, consulta la documentación específica de tu IDE para la ubicación exacta del archivo de configuración MCP.
 
 ---
 
