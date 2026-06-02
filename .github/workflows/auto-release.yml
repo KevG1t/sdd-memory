@@ -83,6 +83,21 @@ jobs:
         cd dist
         sha256sum * > checksums.txt
     
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Publish to NPM
+      run: |
+        cd npm-package
+        # Actualizar versión para coincidir con el tag de Git
+        npm version ${{ steps.version.outputs.NEW_VERSION }} --no-git-tag-version --allow-same-version
+        npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
@@ -113,7 +128,12 @@ jobs:
           #### 3. Manual Download
           Download the appropriate binary for your platform below and add it to your PATH.
           
-          #### 4. Go Install (if you have Go)
+          #### 4. NPM Install
+          ```bash
+          npx @kevg1t/sdd-memory
+          ```
+          
+          #### 5. Go Install (if you have Go)
           ```bash
           go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@${{ steps.version.outputs.NEW_VERSION }}
           ```
