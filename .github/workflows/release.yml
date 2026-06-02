@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+  
 jobs:
   build:
     name: Build and Release
@@ -47,26 +50,28 @@ jobs:
         sha256sum * > checksums.txt
     
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.get_version.outputs.VERSION }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        name: Release ${{ steps.get_version.outputs.VERSION }}
         draft: false
         prerelease: false
+        files: |
+          dist/sdd-memory-linux
+          dist/sdd-memory-macos
+          dist/sdd-memory-windows.exe
+          dist/checksums.txt
         body: |
           ## Installation Options
           
           ### 1. Quick Install (Linux/macOS)
           ```bash
-          curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.sh | bash
+          curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.sh | bash
           ```
           
           ### 2. Quick Install (Windows PowerShell)
           ```powershell
-          irm https://raw.githubusercontent.com/KevG1t/sdd-memory/main/install.ps1 | iex
+          irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.ps1 | iex
           ```
           
           ### 3. Manual Download
@@ -76,43 +81,3 @@ jobs:
           ```bash
           go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@${{ steps.get_version.outputs.VERSION }}
           ```
-    
-    - name: Upload Release Assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/sdd-memory-linux
-        asset_name: sdd-memory-linux
-        asset_content_type: application/octet-stream
-    
-    - name: Upload macOS binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/sdd-memory-macos
-        asset_name: sdd-memory-macos
-        asset_content_type: application/octet-stream
-    
-    - name: Upload Windows binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/sdd-memory-windows.exe
-        asset_name: sdd-memory-windows.exe
-        asset_content_type: application/octet-stream
-    
-    - name: Upload all platform binaries
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/checksums.txt
-        asset_name: checksums.txt
-        asset_content_type: text/plain

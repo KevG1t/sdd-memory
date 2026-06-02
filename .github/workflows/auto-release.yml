@@ -1,0 +1,119 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/**'
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    name: Auto Version and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.26'
+    
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Get next version
+      id: version
+      run: |
+        # Get the latest tag
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $latest_tag"
+        
+        # Extract version numbers (remove 'v' prefix)
+        version=${latest_tag#v}
+        
+        # Split version into parts
+        IFS='.' read -r major minor patch <<< "$version"
+        
+        # Increment patch version
+        new_patch=$((patch + 1))
+        new_version="v${major}.${minor}.${new_patch}"
+        
+        echo "New version: $new_version"
+        echo "NEW_VERSION=$new_version" >> $GITHUB_OUTPUT
+    
+    - name: Create and push tag
+      run: |
+        git tag ${{ steps.version.outputs.NEW_VERSION }}
+        git push origin ${{ steps.version.outputs.NEW_VERSION }}
+    
+    - name: Build binaries
+      run: |
+        # Create dist directory
+        mkdir -p dist
+        
+        # Build for different platforms
+        GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/sdd-memory-linux-amd64 ./cmd/sdd-memory
+        GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/sdd-memory-linux-arm64 ./cmd/sdd-memory
+        GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o dist/sdd-memory-darwin-amd64 ./cmd/sdd-memory
+        GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o dist/sdd-memory-darwin-arm64 ./cmd/sdd-memory
+        GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/sdd-memory-windows-amd64.exe ./cmd/sdd-memory
+        GOOS=windows GOARCH=arm64 go build -ldflags "-s -w" -o dist/sdd-memory-windows-arm64.exe ./cmd/sdd-memory
+        
+        # Create universal binaries for easier download
+        cp dist/sdd-memory-linux-amd64 dist/sdd-memory-linux
+        cp dist/sdd-memory-darwin-arm64 dist/sdd-memory-macos  # Use ARM64 for modern Macs
+        cp dist/sdd-memory-windows-amd64.exe dist/sdd-memory-windows.exe
+    
+    - name: Create checksums
+      run: |
+        cd dist
+        sha256sum * > checksums.txt
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.NEW_VERSION }}
+        name: Release ${{ steps.version.outputs.NEW_VERSION }}
+        draft: false
+        prerelease: false
+        files: |
+          dist/sdd-memory-linux
+          dist/sdd-memory-macos
+          dist/sdd-memory-windows.exe
+          dist/checksums.txt
+        body: |
+          ## 🚀 Auto-generated Release ${{ steps.version.outputs.NEW_VERSION }}
+          
+          ### Installation Options
+          
+          #### 1. Quick Install (Linux/macOS)
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.sh | bash
+          ```
+          
+          #### 2. Quick Install (Windows PowerShell)
+          ```powershell
+          irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.ps1 | iex
+          ```
+          
+          #### 3. Manual Download
+          Download the appropriate binary for your platform below and add it to your PATH.
+          
+          #### 4. Go Install (if you have Go)
+          ```bash
+          go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@${{ steps.version.outputs.NEW_VERSION }}
+          ```
