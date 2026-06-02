@@ -28,7 +28,19 @@ curl -sSL https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.sh 
 irm https://raw.githubusercontent.com/KevG1t/sdd-memory/master/install.ps1 | iex
 ```
 
-### 2. Descarga Manual
+### 2. Instalación con npm/npx
+
+**Ejecución directa (sin instalación):**
+```bash
+npx @kevg1t/sdd-memory
+```
+
+**Instalación global:**
+```bash
+npm install -g @kevg1t/sdd-memory
+```
+
+### 3. Descarga Manual
 
 Descarga el binario para tu plataforma desde la [página de releases](https://github.com/KevG1t/sdd-memory/releases/latest):
 
@@ -38,7 +50,7 @@ Descarga el binario para tu plataforma desde la [página de releases](https://gi
 
 Luego colócalo en tu PATH.
 
-### 3. Instalación con Go
+### 4. Instalación con Go
 
 Si tienes Go instalado:
 
@@ -50,6 +62,7 @@ go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest
 
 ### Actualización
 - **Instalación rápida**: Vuelve a ejecutar el script de instalación
+- **npm**: `npm update -g @kevg1t/sdd-memory`
 - **Go install**: `go install github.com/KevG1t/sdd-memory/cmd/sdd-memory@latest`
 
 ### Desinstalación

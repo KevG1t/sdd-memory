@@ -1,0 +1,49 @@
+{
+  "name": "@kevg1t/sdd-memory",
+  "version": "1.0.0",
+  "description": "Ultra-fast Local-First persistence engine designed for long-term memory in AI agents",
+  "main": "bin/sdd-memory.js",
+  "bin": {
+    "sdd-memory": "./bin/sdd-memory.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/"
+  ],
+  "keywords": [
+    "ai",
+    "memory",
+    "persistence",
+    "local-first",
+    "mcp",
+    "sqlite",
+    "agents",
+    "cursor",
+    "claude"
+  ],
+  "author": "KevG1t",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KevG1t/sdd-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KevG1t/sdd-memory/issues"
+  },
+  "homepage": "https://github.com/KevG1t/sdd-memory#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
