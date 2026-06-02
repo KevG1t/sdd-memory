@@ -89,11 +89,19 @@ jobs:
         node-version: '18'
         registry-url: 'https://registry.npmjs.org'
     
+    - name: Prepare NPM package with binaries
+      run: |
+        cd npm-package
+        # Crear directorio dist y copiar todos los binarios
+        mkdir -p dist
+        cp ../dist/sdd-memory-* dist/
+        
+        # Actualizar versión para coincidir con el tag de Git
+        npm version ${{ steps.version.outputs.NEW_VERSION }} --no-git-tag-version --allow-same-version
+        
     - name: Publish to NPM
       run: |
         cd npm-package
-        # Actualizar versión para coincidir con el tag de Git
-        npm version ${{ steps.version.outputs.NEW_VERSION }} --no-git-tag-version --allow-same-version
         npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
