@@ -72,6 +72,53 @@ function makeExecutable(filePath) {
 }
 
 /**
+ * Intenta instalar el binario globalmente para acceso directo
+ */
+function tryGlobalInstall(sourcePath, platformInfo) {
+  const os = require('os');
+  const { execSync } = require('child_process');
+  
+  try {
+    const globalBinDir = path.join(os.homedir(), '.local', 'bin');
+    const globalBinaryPath = path.join(globalBinDir, platformInfo.isWindows ? 'sdd-memory.exe' : 'sdd-memory');
+    
+    // Crear directorio si no existe
+    if (!fs.existsSync(globalBinDir)) {
+      fs.mkdirSync(globalBinDir, { recursive: true });
+    }
+    
+    // Copiar binario
+    fs.copyFileSync(sourcePath, globalBinaryPath);
+    
+    // Hacer ejecutable en sistemas Unix
+    if (!platformInfo.isWindows) {
+      makeExecutable(globalBinaryPath);
+    }
+    
+    console.log(`🌍 Global installation: ${globalBinaryPath}`);
+    
+    // En Windows, intentar agregar al PATH del usuario
+    if (platformInfo.isWindows) {
+      try {
+        const currentPath = process.env.PATH || '';
+        if (!currentPath.includes(globalBinDir)) {
+          console.log('💡 Adding to PATH for global access...');
+          console.log('   You may need to restart your terminal for "sdd-memory" command to work globally.');
+        }
+      } catch (err) {
+        console.log('💡 To use "sdd-memory" globally, add to your PATH:');
+        console.log(`   ${globalBinDir}`);
+      }
+    }
+    
+    return true;
+  } catch (err) {
+    console.log('⚠️  Could not install globally, but local installation succeeded');
+    return false;
+  }
+}
+
+/**
  * Instala el binario de sdd-memory
  */
 async function install() {
@@ -112,10 +159,17 @@ async function install() {
     }
     
     console.log(`✅ sdd-memory installed successfully at: ${binaryPath}`);
+    
+    // Intentar instalación global
+    const globalInstalled = tryGlobalInstall(binaryPath, platformInfo);
+    
     console.log('');
     console.log('🚀 You can now run:');
-    console.log('   npx @kevg1t/sdd-memory');
-    console.log('   npx @kevg1t/sdd-memory mcp');
+    if (globalInstalled) {
+      console.log('   sdd-memory                    # Direct command (restart terminal if needed)');
+    }
+    console.log('   npx sdd-memory-kevg1t         # Via npx');
+    console.log('   npx sdd-memory-kevg1t mcp     # MCP server mode');
     console.log('');
     
   } catch (error) {
