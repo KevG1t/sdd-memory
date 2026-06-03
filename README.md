@@ -1,6 +1,6 @@
 # SDD Memory (Lite)
 
-Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado específicamente para dotar de memoria a largo plazo a agentes de IA (como Cursor, Claude Code, etc.), basado en la filosofía de [Engram](https://github.com/KevG1t/engram).
+Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado específicamente para dotar de memoria a largo plazo a agentes de IA (como Cursor, Claude Code, etc.).
 
 ## Características Arquitectónicas
 

@@ -15,7 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const serverInstructions = `Engram provides persistent memory that survives across sessions and compactions.
+const serverInstructions = `SDD Memory provides persistent memory that survives across sessions and compactions.
 
 CORE TOOLS (always available — use without ToolSearch):
   mem_save — save decisions, bugs, discoveries, conventions PROACTIVELY (do not wait to be asked)
