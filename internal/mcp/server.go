@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -167,38 +165,37 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("content is required"), nil
 	}
 
-	existing, _ := s.store.FindByTopicKey(project, scope, topicKey)
+	toolName, _ := args["tool_name"].(string)
+	sessionID, _ := args["session_id"].(string)
 
-	obs := &store.Observation{
-		Project:       project,
-		Scope:         scope,
-		TopicKey:      topicKey,
-		Type:          obsType,
-		Title:         title,
-		Content:       content,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
-		RevisionCount: 1,
-	}
-
-	if existing != nil {
-		obs.ID = existing.ID
-		obs.CreatedAt = existing.CreatedAt
-		obs.RevisionCount = existing.RevisionCount + 1
-	} else {
-		b := make([]byte, 8)
-		rand.Read(b)
-		obs.ID = "obs-" + hex.EncodeToString(b)
-	}
-
-	if err := s.store.SaveObservation(obs); err != nil {
+	id, err := s.store.AddObservation(store.AddObservationParams{
+		SessionID: sessionID,
+		Type:      obsType,
+		Title:     title,
+		Content:   content,
+		Project:   project,
+		Scope:     scope,
+		TopicKey:  topicKey,
+		ToolName:  toolName,
+	})
+	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("save error: %v", err)), nil
 	}
 
-	// In Lite version we just return the saved ID, no conflict detection
+	// Retrieve sync_id from the saved observation.
+	var syncID string
+	obs, _ := s.store.GetObservation(id)
+	if obs != nil && obs.SyncID != nil {
+		syncID = *obs.SyncID
+	} else {
+		syncID = id
+	}
+
+	// In Lite version we just return the saved ID, no conflict detection.
 	resp := map[string]interface{}{
 		"status":            "saved",
-		"id":                obs.ID,
+		"id":                id,
+		"sync_id":           syncID,
 		"judgment_required": false,
 	}
 	b, _ := json.Marshal(resp)

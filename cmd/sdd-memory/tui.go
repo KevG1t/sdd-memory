@@ -365,8 +365,8 @@ func formatObservation(o store.Observation) string {
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("ID:     "), idStyle.Render(o.ID)))
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Type:   "), typeBadgeStyle.Render(o.Type)))
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Title:  "), detailValueStyle.Bold(true).Render(displayTitle(o))))
-	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Topic:  "), detailValueStyle.Render(o.TopicKey)))
-	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Project:"), projectStyle.Render(o.Project)))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Topic:  "), detailValueStyle.Render(store.StrVal(o.TopicKey))))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Project:"), projectStyle.Render(store.StrVal(o.Project))))
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Scope:  "), detailValueStyle.Render(o.Scope)))
 	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Updated:"), timestampStyle.Render(o.UpdatedAt.Local().Format("2006-01-02 15:04:05"))))
 
@@ -390,8 +390,8 @@ func renderObservationListItem(o store.Observation, selected, showProject bool) 
 	}
 
 	proj := ""
-	if showProject && o.Project != "" {
-		proj = "  " + projectStyle.Render(o.Project)
+	if showProject && store.StrVal(o.Project) != "" {
+		proj = "  " + projectStyle.Render(store.StrVal(o.Project))
 	}
 
 	line := fmt.Sprintf("%s%s %s %s%s  %s\n",
@@ -546,5 +546,5 @@ func displayTitle(o store.Observation) string {
 			return strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(l, "**What**:"), "What:"))
 		}
 	}
-	return o.TopicKey
+	return store.StrVal(o.TopicKey)
 }
