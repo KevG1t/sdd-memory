@@ -14,10 +14,10 @@ import (
 
 // Claude Style Colors
 var (
-	claudeOrange = lipgloss.Color("#FF6B35")
-	claudeBlue   = lipgloss.Color("#4A90E2")
-	claudeGray   = lipgloss.Color("#8E8E93")
-	claudeDark   = lipgloss.Color("#2C2C2E")
+	claudeOrange = lipgloss.AdaptiveColor{Light: "#FF6B35", Dark: "#FF8C5A"}
+	claudeBlue   = lipgloss.AdaptiveColor{Light: "#4A90E2", Dark: "#5CACFF"}
+	claudeGray   = lipgloss.AdaptiveColor{Light: "#8E8E93", Dark: "#A1A1A6"}
+	claudeDark   = lipgloss.AdaptiveColor{Light: "#2C2C2E", Dark: "#E5E5E5"}
 )
 
 // Claude-styled components
