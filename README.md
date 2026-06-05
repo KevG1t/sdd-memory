@@ -9,7 +9,7 @@ Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado es
 - **Búsqueda FTS5:** Motor de búsqueda full-text nativo de alta performance para recuperar contexto exacto.
 - **TUI Elegante:** Interfaz de terminal inmersiva y fluida (basada en `bubbletea` y `lipgloss`) para explorar tu memoria.
 - **Protocolo MCP Completo:** Exposición limpia de 17 herramientas a través de `stdio` compatibles con el estándar Model Context Protocol.
-- **Motor de datos alineado con Engram:** Deduplicación de 3 ramas (revisión por `topic_key`, dedup por hash dentro de una ventana temporal, inserción), borrado lógico (*soft-delete*) y tabla propia de prompts. Contrato de campos compatible con Engram (`sync_id`, `tool_name`, `duplicate_count`, etc.).
+- **Motor de datos sdd-memory:** Deduplicación de 3 ramas (revisión por `topic_key`, dedup por hash dentro de una ventana temporal, inserción), borrado lógico (*soft-delete*) y tabla propia de prompts. Contrato de campos compatible con sdd-memory (`sync_id`, `tool_name`, `duplicate_count`, etc.).
 
 ---
 

@@ -32,7 +32,7 @@ var (
 	logoStyle         = lipgloss.NewStyle().Foreground(claudeOrange).Bold(true)
 	subtitleStyle     = lipgloss.NewStyle().Foreground(claudeGray)
 
-	// Observation rendering (Engram-aligned formatting)
+	// Observation rendering (sdd-memory-aligned formatting)
 	idStyle             = lipgloss.NewStyle().Foreground(claudeGray)
 	typeBadgeStyle      = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true)
 	projectStyle        = lipgloss.NewStyle().Foreground(claudeGray).Italic(true)
@@ -377,7 +377,6 @@ func formatObservation(o store.Observation) string {
 }
 
 // renderObservationListItem renders one observation as a two-line entry,
-// mirroring Engram's list format:
 //
 //	▸ obs-1a2b      [type        ] Title  project  2006-01-02 15:04:05
 //	    content preview...
