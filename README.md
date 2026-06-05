@@ -8,7 +8,8 @@ Un motor de persistencia *Local-First* ultrarrápido y minimalista, diseñado es
 - **Local-First (SQLite):** Persistencia inmediata usando `modernc.org/sqlite` (sin requerir compiladores CGO, funciona en cualquier plataforma).
 - **Búsqueda FTS5:** Motor de búsqueda full-text nativo de alta performance para recuperar contexto exacto.
 - **TUI Elegante:** Interfaz de terminal inmersiva y fluida (basada en `bubbletea` y `lipgloss`) para explorar tu memoria.
-- **Protocolo MCP Completo:** Exposición limpia de 15 herramientas a través de `stdio` compatibles con el estándar Model Context Protocol.
+- **Protocolo MCP Completo:** Exposición limpia de 17 herramientas a través de `stdio` compatibles con el estándar Model Context Protocol.
+- **Motor de datos alineado con Engram:** Deduplicación de 3 ramas (revisión por `topic_key`, dedup por hash dentro de una ventana temporal, inserción), borrado lógico (*soft-delete*) y tabla propia de prompts. Contrato de campos compatible con Engram (`sync_id`, `tool_name`, `duplicate_count`, etc.).
 
 ---
 
@@ -225,7 +226,7 @@ En tu computadora de desarrollo, tu base SQLite local siempre es la dueña de la
 
 ## 🛠️ Herramientas MCP Expuestas
 
-El modo servidor expone **15 herramientas** vitales para que los agentes administren la información sin necesidad de intervención manual:
+El modo servidor expone **17 herramientas** vitales para que los agentes administren la información sin necesidad de intervención manual. Para la referencia completa de parámetros y respuestas, ver [`docs/mcp-tools.md`](docs/mcp-tools.md):
 
 - **Búsqueda y Recuperación:**
   - `mem_search`: Busca conocimiento histórico usando el motor FTS5.
@@ -235,12 +236,14 @@ El modo servidor expone **15 herramientas** vitales para que los agentes adminis
   - `mem_session_start` / `mem_session_end`: Las sesiones se guardan en su propia tabla para hacer seguimiento del trabajo en curso.
   - `mem_session_summary`: Guarda resúmenes detallados al finalizar una iteración.
 - **Escritura y Modificación:**
-  - `mem_save`: Guarda o actualiza una observación manual.
+  - `mem_save`: Guarda o actualiza una observación. Aplica las 3 ramas de dedup (revisión por `topic_key`, dedup por hash, inserción).
   - `mem_capture_passive`: Captura aprendizajes de contexto pasivamente.
   - `mem_update`: Corrige detalles específicos de una observación existente en SQL.
-  - `mem_save_prompt`: Almacena templates y prompts útiles.
+  - `mem_delete`: Borrado lógico (*soft-delete*) de una observación; con `hard: true` la elimina físicamente.
+  - `mem_save_prompt`: Registra un prompt del usuario en la tabla `user_prompts`.
 - **Utilidades del Sistema:**
   - `mem_current_project`: Detecta y retorna automáticamente tu directorio actual de trabajo.
+  - `mem_stats`: Métricas de la memoria (sesiones, observaciones, prompts, proyectos).
   - `mem_doctor`: Diagnósticos de estado de la base de datos.
   - `mem_suggest_topic_key`: Utilidad para sanitizar títulos de observaciones.
   - `mem_judge` / `mem_compare`: Aliases de compatibilidad para flujos lógicos avanzados.

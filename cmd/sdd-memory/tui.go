@@ -31,6 +31,16 @@ var (
 	headerStyle       = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true).MarginBottom(1).MarginTop(1)
 	logoStyle         = lipgloss.NewStyle().Foreground(claudeOrange).Bold(true)
 	subtitleStyle     = lipgloss.NewStyle().Foreground(claudeGray)
+
+	// Observation rendering (Engram-aligned formatting)
+	idStyle             = lipgloss.NewStyle().Foreground(claudeGray)
+	typeBadgeStyle      = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true)
+	projectStyle        = lipgloss.NewStyle().Foreground(claudeGray).Italic(true)
+	timestampStyle      = lipgloss.NewStyle().Foreground(claudeGray)
+	contentPreviewStyle = lipgloss.NewStyle().PaddingLeft(4).Foreground(claudeGray)
+	detailLabelStyle    = lipgloss.NewStyle().Foreground(claudeBlue).Bold(true)
+	detailValueStyle    = lipgloss.NewStyle().Foreground(claudeDark)
+	sectionHeadingStyle = lipgloss.NewStyle().Foreground(claudeOrange).Bold(true).MarginTop(1)
 )
 
 type viewState int
@@ -335,14 +345,7 @@ func (m tuiModel) View() string {
 			b.WriteString("No observations found for this session.")
 		} else {
 			for i, o := range m.sessionObservations {
-				cursor := " "
-				style := itemStyle
-				if m.sessionCursor == i {
-					cursor = "▸"
-					style = selectedItemStyle
-				}
-				title := getTitle(o)
-				b.WriteString(style.Render(fmt.Sprintf("%s [%s] %s", cursor, o.Topic, title)) + "\n")
+				b.WriteString(renderObservationListItem(o, m.sessionCursor == i, false))
 			}
 		}
 		b.WriteString(helpStyle.Render("\n\n(enter) view • (q/esc) back"))
@@ -358,13 +361,60 @@ func (m tuiModel) View() string {
 
 func formatObservation(o store.Observation) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Type:      %s\n", o.Topic))
-	b.WriteString(fmt.Sprintf("Project:   %s\n", o.Project))
-	b.WriteString(fmt.Sprintf("Scope:     %s\n", o.Scope))
-	b.WriteString(fmt.Sprintf("Updated:   %s\n", o.UpdatedAt.Local().Format("2006-01-02 15:04:05")))
-	b.WriteString("\nContent:\n")
+
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("ID:     "), idStyle.Render(o.ID)))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Type:   "), typeBadgeStyle.Render(o.Type)))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Title:  "), detailValueStyle.Bold(true).Render(displayTitle(o))))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Topic:  "), detailValueStyle.Render(store.StrVal(o.TopicKey))))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Project:"), projectStyle.Render(store.StrVal(o.Project))))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Scope:  "), detailValueStyle.Render(o.Scope)))
+	b.WriteString(fmt.Sprintf("%s %s\n", detailLabelStyle.Render("Updated:"), timestampStyle.Render(o.UpdatedAt.Local().Format("2006-01-02 15:04:05"))))
+
+	b.WriteString(sectionHeadingStyle.Render("Content"))
+	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(claudeDark).Render(o.Content))
 	return b.String()
+}
+
+// renderObservationListItem renders one observation as a two-line entry,
+// mirroring Engram's list format:
+//
+//	▸ obs-1a2b      [type        ] Title  project  2006-01-02 15:04:05
+//	    content preview...
+func renderObservationListItem(o store.Observation, selected, showProject bool) string {
+	cursor := "  "
+	style := itemStyle
+	if selected {
+		cursor = "▸ "
+		style = selectedItemStyle
+	}
+
+	proj := ""
+	if showProject && store.StrVal(o.Project) != "" {
+		proj = "  " + projectStyle.Render(store.StrVal(o.Project))
+	}
+
+	line := fmt.Sprintf("%s%s %s %s%s  %s\n",
+		cursor,
+		idStyle.Render(fmt.Sprintf("%-12s", o.ID)),
+		typeBadgeStyle.Render(fmt.Sprintf("[%-12s]", o.Type)),
+		style.Render(truncate(displayTitle(o), 50)),
+		proj,
+		timestampStyle.Render(o.CreatedAt.Local().Format("2006-01-02 15:04:05")))
+
+	preview := truncate(strings.ReplaceAll(o.Content, "\n", " "), 80)
+	if preview != "" {
+		line += contentPreviewStyle.Render(preview) + "\n"
+	}
+	return line
+}
+
+func truncate(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "..."
 }
 
 func (m tuiModel) viewDashboard() string {
@@ -418,17 +468,8 @@ func (m tuiModel) viewSearch() string {
 	if len(m.searchResults) > 0 {
 		b.WriteString(fmt.Sprintf("Found %d results:\n\n", len(m.searchResults)))
 		for i, o := range m.searchResults {
-			cursor := " "
-			style := itemStyle
-			if m.searchCursor == i && !m.searchInput.Focused() {
-				cursor = "▸"
-				style = selectedItemStyle
-			} else if m.searchCursor == i {
-				cursor = "•" // Unfocused indicator
-			}
-
-			title := getTitle(o)
-			b.WriteString(style.Render(fmt.Sprintf("%s [%s] %s (Proj: %s)", cursor, o.Topic, title, o.Project)) + "\n")
+			selected := m.searchCursor == i && !m.searchInput.Focused()
+			b.WriteString(renderObservationListItem(o, selected, true))
 		}
 	} else if m.searchDone {
 		b.WriteString("No results found for your query.")
@@ -446,15 +487,7 @@ func (m tuiModel) viewObservations() string {
 	s.WriteString(titleStyle.Render("📝 Recent Observations") + "\n")
 
 	for i, o := range m.observations {
-		cursor := " "
-		style := itemStyle
-		if m.cursor == i {
-			cursor = "▸"
-			style = selectedItemStyle
-		}
-
-		title := getTitle(o)
-		s.WriteString(style.Render(fmt.Sprintf("%s [%s] %s (Proj: %s)", cursor, o.Topic, title, o.Project)) + "\n")
+		s.WriteString(renderObservationListItem(o, m.cursor == i, true))
 	}
 	return s.String()
 }
@@ -467,23 +500,24 @@ func (m tuiModel) viewSessions() string {
 	s.WriteString(titleStyle.Render("🔄 Recent Sessions") + "\n")
 
 	for i, sess := range m.sessions {
-		cursor := " "
+		cursor := "  "
 		style := itemStyle
 		if m.cursor == i {
-			cursor = "▸"
+			cursor = "▸ "
 			style = selectedItemStyle
 		}
 
-		summary := "No summary"
+		summary := ""
 		if sess.Summary != nil {
-			summary = *sess.Summary
-			summary = strings.ReplaceAll(summary, "\n", " ")
-			if len(summary) > 40 {
-				summary = summary[:37] + "..."
-			}
+			summary = truncate(strings.ReplaceAll(*sess.Summary, "\n", " "), 50)
 		}
 
-		s.WriteString(style.Render(fmt.Sprintf("%s [%s] %s | Obs: %d | %s", cursor, sess.Project, sess.StartedAt.Local().Format("2006-01-02 15:04"), sess.ObservationCount, summary)) + "\n")
+		s.WriteString(fmt.Sprintf("%s%s  %s  %s obs  %s\n",
+			cursor,
+			projectStyle.Render(fmt.Sprintf("%-20s", sess.Project)),
+			timestampStyle.Render(sess.StartedAt.Local().Format("2006-01-02 15:04:05")),
+			typeBadgeStyle.Render(fmt.Sprintf("%d", sess.ObservationCount)),
+			style.Render(summary)))
 	}
 	return s.String()
 }
@@ -499,13 +533,18 @@ func (m tuiModel) viewSetup() string {
 		subtitleStyle.Render("Nota: Gracias a 'go install', el comando ya está en tu PATH global.")
 }
 
-// Helper to extract a title if available
-func getTitle(o store.Observation) string {
+// displayTitle resolves the best human-readable label for an observation:
+// the explicit Title field, then a "What:" line in the content, then the
+// topic_key as a last resort.
+func displayTitle(o store.Observation) string {
+	if strings.TrimSpace(o.Title) != "" {
+		return o.Title
+	}
 	lines := strings.Split(o.Content, "\n")
 	for _, l := range lines {
 		if strings.HasPrefix(l, "**What**:") || strings.HasPrefix(l, "What:") {
 			return strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(l, "**What**:"), "What:"))
 		}
 	}
-	return o.Topic
+	return store.StrVal(o.TopicKey)
 }

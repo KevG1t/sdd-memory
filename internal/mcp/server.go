@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -94,12 +92,14 @@ func (s *Server) registerTools() {
 		{"mem_compare", "Compare observations", s.handleMemJudge}, // Lite mode aliases this
 		{"mem_context", "Fetch context for current state", s.handleMemContext},
 		{"mem_current_project", "Get current project directory", s.handleMemCurrentProject},
+		{"mem_delete", "Soft-delete a memory observation", s.handleMemDelete},
 		{"mem_doctor", "Run diagnostics", s.handleMemDoctor},
 		{"mem_judge", "Evaluate decision against rules", s.handleMemJudge},
-		{"mem_save_prompt", "Save a prompt template", s.handleMemSavePrompt},
+		{"mem_save_prompt", "Record a user prompt for context tracking", s.handleMemSavePrompt},
 		{"mem_session_start", "Start a new session", s.handleMemSessionStart},
 		{"mem_session_end", "End current session", s.handleMemSessionEnd},
 		{"mem_session_summary", "Summarize current session", s.handleMemSessionSummary},
+		{"mem_stats", "Get memory statistics", s.handleMemStats},
 		{"mem_suggest_topic_key", "Suggest a topic key for content", s.handleMemSuggestTopicKey},
 		{"mem_update", "Update an existing observation", s.handleMemUpdate},
 	}
@@ -113,6 +113,7 @@ func (s *Server) registerTools() {
 				"project":    map[string]interface{}{"type": "string"},
 				"scope":      map[string]interface{}{"type": "string"},
 				"topic":      map[string]interface{}{"type": "string"},
+				"topic_key":  map[string]interface{}{"type": "string"},
 				"content":    map[string]interface{}{"type": "string"},
 				"query":      map[string]interface{}{"type": "string"},
 				"id":         map[string]interface{}{"type": "string"},
@@ -120,6 +121,8 @@ func (s *Server) registerTools() {
 				"summary":    map[string]interface{}{"type": "string"},
 				"title":      map[string]interface{}{"type": "string"},
 				"type":       map[string]interface{}{"type": "string"},
+				"tool_name":  map[string]interface{}{"type": "string"},
+				"hard":       map[string]interface{}{"type": "boolean"},
 			},
 		}
 		s.mcpServer.AddTool(tool, t.fn)
@@ -132,21 +135,29 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 
-	// Default to general project if empty
+	// Pass project through as-is. An empty project is normalized to NULL by the
+	// store (Engram wire contract: project-less observations are globally scoped).
 	project, _ := args["project"].(string)
-	if project == "" {
-		project = "default"
-	}
 
 	scope, _ := args["scope"].(string)
 	if scope == "" {
 		scope = "project"
 	}
 
-	topic, _ := args["topic"].(string)
+	// Resolve the stable upsert key. Engram/SpecAI send `topic_key`; accept the
+	// legacy `topic` as a fallback so older callers keep working. Do NOT fall
+	// back to `title`: Branch A (topic_key revision) must only fire when the
+	// caller explicitly supplies a key, otherwise same-titled observations would
+	// silently overwrite each other.
+	topicKey, _ := args["topic_key"].(string)
 	title, _ := args["title"].(string)
-	if topic == "" {
-		topic = title // fallback
+	if topicKey == "" {
+		topicKey, _ = args["topic"].(string)
+	}
+
+	obsType, _ := args["type"].(string)
+	if obsType == "" {
+		obsType = "note"
 	}
 
 	content, _ := args["content"].(string)
@@ -154,36 +165,37 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("content is required"), nil
 	}
 
-	existing, _ := s.store.FindByTopicKey(project, scope, topic)
+	toolName, _ := args["tool_name"].(string)
+	sessionID, _ := args["session_id"].(string)
 
-	obs := &store.Observation{
-		Project:       project,
-		Scope:         scope,
-		Topic:         topic,
-		Content:       content,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
-		RevisionCount: 1,
-	}
-
-	if existing != nil {
-		obs.ID = existing.ID
-		obs.CreatedAt = existing.CreatedAt
-		obs.RevisionCount = existing.RevisionCount + 1
-	} else {
-		b := make([]byte, 8)
-		rand.Read(b)
-		obs.ID = "obs-" + hex.EncodeToString(b)
-	}
-
-	if err := s.store.SaveObservation(obs); err != nil {
+	id, err := s.store.AddObservation(store.AddObservationParams{
+		SessionID: sessionID,
+		Type:      obsType,
+		Title:     title,
+		Content:   content,
+		Project:   project,
+		Scope:     scope,
+		TopicKey:  topicKey,
+		ToolName:  toolName,
+	})
+	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("save error: %v", err)), nil
 	}
 
-	// In Lite version we just return the saved ID, no conflict detection
+	// Retrieve sync_id from the saved observation.
+	var syncID string
+	obs, _ := s.store.GetObservation(id)
+	if obs != nil && obs.SyncID != nil {
+		syncID = *obs.SyncID
+	} else {
+		syncID = id
+	}
+
+	// In Lite version we just return the saved ID, no conflict detection.
 	resp := map[string]interface{}{
 		"status":            "saved",
-		"id":                obs.ID,
+		"id":                id,
+		"sync_id":           syncID,
 		"judgment_required": false,
 	}
 	b, _ := json.Marshal(resp)
@@ -243,7 +255,10 @@ func (s *Server) handleMemCapturePassive(ctx context.Context, request mcp.CallTo
 		return mcp.NewToolResultError("content required"), nil
 	}
 
-	args["topic"] = "passive-capture-" + time.Now().Format("20060102150405")
+	args["topic_key"] = "passive-capture-" + time.Now().Format("20060102150405")
+	if _, ok := args["type"]; !ok {
+		args["type"] = "passive"
+	}
 	return s.handleMemSave(ctx, request)
 }
 
@@ -287,10 +302,62 @@ func (s *Server) handleMemDoctor(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(string(b)), nil
 }
 
+// handleMemSavePrompt records a user prompt directly to user_prompts (NOT observations).
+// It MUST NOT route through handleMemSave.
 func (s *Server) handleMemSavePrompt(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, _ := request.Params.Arguments.(map[string]interface{})
-	args["topic"] = "user-prompt"
-	return s.handleMemSave(ctx, request)
+	content, _ := args["content"].(string)
+	if content == "" {
+		return mcp.NewToolResultError("content is required"), nil
+	}
+	project, _ := args["project"].(string)
+	sessionID, _ := args["session_id"].(string)
+
+	id, err := s.store.AddPrompt(store.AddPromptParams{
+		Content:   content,
+		Project:   project,
+		SessionID: sessionID,
+	})
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("save prompt error: %v", err)), nil
+	}
+	resp := map[string]interface{}{
+		"status": "saved",
+		"id":     fmt.Sprintf("%d", id),
+	}
+	b, _ := json.Marshal(resp)
+	return mcp.NewToolResultText(string(b)), nil
+}
+
+// handleMemDelete soft-deletes an observation by id.
+func (s *Server) handleMemDelete(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args, _ := request.Params.Arguments.(map[string]interface{})
+	id, _ := args["id"].(string)
+	if id == "" {
+		return mcp.NewToolResultError("id is required"), nil
+	}
+	hard := false
+	if h, ok := args["hard"].(bool); ok {
+		hard = h
+	}
+	if err := s.store.DeleteObservation(id, hard); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("delete error: %v", err)), nil
+	}
+	mode := "soft-deleted"
+	if hard {
+		mode = "hard-deleted"
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Observation %s %s", id, mode)), nil
+}
+
+// handleMemStats returns memory statistics.
+func (s *Server) handleMemStats(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	stats, err := s.store.Stats()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("stats error: %v", err)), nil
+	}
+	b, _ := json.Marshal(stats)
+	return mcp.NewToolResultText(string(b)), nil
 }
 
 func (s *Server) handleMemSessionStart(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
