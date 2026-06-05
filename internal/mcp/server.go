@@ -113,6 +113,7 @@ func (s *Server) registerTools() {
 				"project":    map[string]interface{}{"type": "string"},
 				"scope":      map[string]interface{}{"type": "string"},
 				"topic":      map[string]interface{}{"type": "string"},
+				"topic_key":  map[string]interface{}{"type": "string"},
 				"content":    map[string]interface{}{"type": "string"},
 				"query":      map[string]interface{}{"type": "string"},
 				"id":         map[string]interface{}{"type": "string"},
@@ -143,10 +144,22 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		scope = "project"
 	}
 
-	topic, _ := args["topic"].(string)
+	// Resolve the stable upsert key. Engram/SpecAI send `topic_key`; accept the
+	// legacy `topic` and finally `title` as fallbacks so older callers keep
+	// working.
+	topicKey, _ := args["topic_key"].(string)
 	title, _ := args["title"].(string)
-	if topic == "" {
-		topic = title // fallback
+	if topicKey == "" {
+		if t, _ := args["topic"].(string); t != "" {
+			topicKey = t
+		} else {
+			topicKey = title
+		}
+	}
+
+	obsType, _ := args["type"].(string)
+	if obsType == "" {
+		obsType = "note"
 	}
 
 	content, _ := args["content"].(string)
@@ -154,12 +167,14 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("content is required"), nil
 	}
 
-	existing, _ := s.store.FindByTopicKey(project, scope, topic)
+	existing, _ := s.store.FindByTopicKey(project, scope, topicKey)
 
 	obs := &store.Observation{
 		Project:       project,
 		Scope:         scope,
-		Topic:         topic,
+		TopicKey:      topicKey,
+		Type:          obsType,
+		Title:         title,
 		Content:       content,
 		CreatedAt:     time.Now().UTC(),
 		UpdatedAt:     time.Now().UTC(),
@@ -243,7 +258,10 @@ func (s *Server) handleMemCapturePassive(ctx context.Context, request mcp.CallTo
 		return mcp.NewToolResultError("content required"), nil
 	}
 
-	args["topic"] = "passive-capture-" + time.Now().Format("20060102150405")
+	args["topic_key"] = "passive-capture-" + time.Now().Format("20060102150405")
+	if _, ok := args["type"]; !ok {
+		args["type"] = "passive"
+	}
 	return s.handleMemSave(ctx, request)
 }
 
@@ -289,7 +307,10 @@ func (s *Server) handleMemDoctor(ctx context.Context, request mcp.CallToolReques
 
 func (s *Server) handleMemSavePrompt(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, _ := request.Params.Arguments.(map[string]interface{})
-	args["topic"] = "user-prompt"
+	args["topic_key"] = "user-prompt"
+	if _, ok := args["type"]; !ok {
+		args["type"] = "prompt"
+	}
 	return s.handleMemSave(ctx, request)
 }
 

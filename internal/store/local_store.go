@@ -12,6 +12,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// obsColumns is the canonical column projection for observation reads. Keep it
+// in sync with scanObservation.
+const obsColumns = `id, session_id, type, title, project, scope, topic_key, content, revision_count, created_at, updated_at`
+
 type LocalStore struct {
 	db *sql.DB
 }
@@ -48,16 +52,15 @@ func (s *LocalStore) Init() error {
 		`CREATE TABLE IF NOT EXISTS observations (
 			id TEXT PRIMARY KEY,
 			session_id TEXT,
+			type TEXT NOT NULL DEFAULT 'note',
+			title TEXT NOT NULL DEFAULT '',
 			project TEXT NOT NULL,
 			scope TEXT NOT NULL,
-			topic TEXT NOT NULL,
+			topic_key TEXT NOT NULL,
 			content TEXT NOT NULL,
 			revision_count INTEGER NOT NULL DEFAULT 1,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
-		);`,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
-			project, scope, topic, content, content='observations', content_rowid='rowid'
 		);`,
 		`CREATE TABLE IF NOT EXISTS sync_mutations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,9 +83,38 @@ func (s *LocalStore) Init() error {
 		}
 	}
 
-	// Migrations
-	// Safely add session_id if it doesn't exist (ignore error if it already exists)
-	s.db.Exec(`ALTER TABLE observations ADD COLUMN session_id TEXT`)
+	// Migrations for databases created before the Engram-aligned contract.
+	// ALTER TABLE ADD COLUMN is idempotent here only by ignoring the error when
+	// the column already exists.
+	for _, alter := range []string{
+		`ALTER TABLE observations ADD COLUMN session_id TEXT`,
+		`ALTER TABLE observations ADD COLUMN type TEXT NOT NULL DEFAULT 'note'`,
+		`ALTER TABLE observations ADD COLUMN title TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE observations ADD COLUMN topic_key TEXT NOT NULL DEFAULT ''`,
+	} {
+		s.db.Exec(alter)
+	}
+
+	// Carry forward any legacy `topic` column values into topic_key, then drop
+	// the FTS index so it can be rebuilt against the current schema.
+	s.db.Exec(`UPDATE observations SET topic_key = topic WHERE topic_key = '' AND topic IS NOT NULL`)
+	s.db.Exec(`DROP TABLE IF EXISTS observations_fts`)
+
+	// Standalone (not external-content) FTS5 table: it keeps its own copy of the
+	// indexed text, so a plain DELETE-by-rowid is safe even after the source row
+	// has already been updated. The external-content variant corrupts on upsert
+	// because it recomputes delete tokens from the post-update content row.
+	if _, err := s.db.Exec(`CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
+		project, scope, topic_key, title, content
+	);`); err != nil {
+		return fmt.Errorf("init fts error: %w", err)
+	}
+
+	// Repopulate the index from any pre-existing observations.
+	s.db.Exec(`
+		INSERT INTO observations_fts (rowid, project, scope, topic_key, title, content)
+		SELECT rowid, project, scope, topic_key, title, content FROM observations
+	`)
 
 	return nil
 }
@@ -106,12 +138,14 @@ func (s *LocalStore) logMutation(tx *sql.Tx, tableName, recordID, operation stri
 }
 
 func (s *LocalStore) GetObservation(id string) (*Observation, error) {
-	row := s.db.QueryRow(`SELECT id, project, scope, topic, content, revision_count, created_at, updated_at FROM observations WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT `+obsColumns+` FROM observations WHERE id = ?`, id)
 	return scanObservation(row)
 }
 
-func (s *LocalStore) FindByTopicKey(project, scope, topic string) (*Observation, error) {
-	row := s.db.QueryRow(`SELECT id, project, scope, topic, content, revision_count, created_at, updated_at FROM observations WHERE project = ? AND scope = ? AND topic = ?`, project, scope, topic)
+// FindByTopicKey locates an existing observation for upsert by its stable
+// topic_key within a project/scope.
+func (s *LocalStore) FindByTopicKey(project, scope, topicKey string) (*Observation, error) {
+	row := s.db.QueryRow(`SELECT `+obsColumns+` FROM observations WHERE project = ? AND scope = ? AND topic_key = ?`, project, scope, topicKey)
 	return scanObservation(row)
 }
 
@@ -170,13 +204,12 @@ func (s *LocalStore) MarkMutationsSynced(ids []int64) error {
 	return err
 }
 
-
 // Stats returns system statistics
 func (s *LocalStore) Stats() (*Stats, error) {
 	stats := &Stats{}
 	s.db.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&stats.TotalSessions)
 	s.db.QueryRow(`SELECT COUNT(*) FROM observations`).Scan(&stats.TotalObservations)
-	s.db.QueryRow(`SELECT COUNT(*) FROM observations WHERE topic = 'user-prompt'`).Scan(&stats.TotalPrompts)
+	s.db.QueryRow(`SELECT COUNT(*) FROM observations WHERE topic_key = 'user-prompt'`).Scan(&stats.TotalPrompts)
 
 	rows, err := s.db.Query(`SELECT DISTINCT project FROM observations`)
 	if err == nil {
@@ -224,7 +257,7 @@ func (s *LocalStore) RecentSessions(limit int) ([]SessionSummary, error) {
 }
 
 func (s *LocalStore) RecentObservations(limit int) ([]Observation, error) {
-	rows, err := s.db.Query(`SELECT id, project, scope, topic, content, revision_count, created_at, updated_at FROM observations ORDER BY created_at DESC LIMIT ?`, limit)
+	rows, err := s.db.Query(`SELECT `+obsColumns+` FROM observations ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +273,7 @@ func (s *LocalStore) RecentObservations(limit int) ([]Observation, error) {
 }
 
 func (s *LocalStore) ObservationsBySession(sessionID string) ([]Observation, error) {
-	rows, err := s.db.Query(`SELECT id, project, scope, topic, content, revision_count, created_at, updated_at FROM observations WHERE session_id = ? ORDER BY created_at ASC`, sessionID)
+	rows, err := s.db.Query(`SELECT `+obsColumns+` FROM observations WHERE session_id = ? ORDER BY created_at ASC`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -255,124 +288,110 @@ func (s *LocalStore) ObservationsBySession(sessionID string) ([]Observation, err
 	return res, nil
 }
 
+// UpdateObservation patches the mutable fields of an observation and refreshes
+// its FTS row.
 func (s *LocalStore) UpdateObservation(id, title, content, obsType, scope string) error {
-	_, err := s.db.Exec(`UPDATE observations SET topic = ?, content = ?, scope = ?, updated_at = ? WHERE id = ?`,
-		title, content, scope, time.Now().UTC().Format(time.RFC3339), id)
-	// We should also update FTS but keeping it simple for the Lite version unless requested
-	return err
-}
-
-func scanObservation(scanner interface{ Scan(dest ...any) error }) (*Observation, error) {
-	var obs Observation
-	var cAt, uAt string
-	err := scanner.Scan(&obs.ID, &obs.Project, &obs.Scope, &obs.Topic, &obs.Content, &obs.RevisionCount, &cAt, &uAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	obs.CreatedAt, _ = time.Parse(time.RFC3339, cAt)
-	obs.UpdatedAt, _ = time.Parse(time.RFC3339, uAt)
-	return &obs, nil
-}
-
-func (s *LocalStore) SaveObservation(obs *Observation) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	var existingID string
-	err = tx.QueryRow(`SELECT id FROM observations WHERE id = ?`, obs.ID).Scan(&existingID)
-	exists := err != sql.ErrNoRows
-
-	cAt := obs.CreatedAt.Format(time.RFC3339)
-	uAt := obs.UpdatedAt.Format(time.RFC3339)
-
-	_, err = tx.Exec(`
-		INSERT INTO observations (id, session_id, project, scope, topic, content, revision_count, created_at, updated_at)
-		VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			project = excluded.project,
-			scope = excluded.scope,
-			topic = excluded.topic,
-			content = excluded.content,
-			revision_count = excluded.revision_count,
-			updated_at = excluded.updated_at
-	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content, obs.RevisionCount, cAt, uAt)
+	_, err = tx.Exec(`UPDATE observations SET title = ?, content = ?, type = ?, scope = ?, updated_at = ? WHERE id = ?`,
+		title, content, obsType, scope, time.Now().UTC().Format(time.RFC3339), id)
 	if err != nil {
 		return err
 	}
 
-	if exists {
-		_, err = tx.Exec(`DELETE FROM observations_fts WHERE rowid = (SELECT rowid FROM observations WHERE id = ?)`, obs.ID)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = tx.Exec(`
-		INSERT INTO observations_fts (rowid, project, scope, topic, content)
-		VALUES ((SELECT rowid FROM observations WHERE id = ?), ?, ?, ?, ?)
-	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content)
-	if err != nil {
-		return err
-	}
-
-	if err := s.logMutation(tx, "observations", obs.ID, "upsert", obs); err != nil {
+	if err := refreshFTS(tx, id); err != nil {
 		return err
 	}
 
 	return tx.Commit()
 }
 
+func scanObservation(scanner interface{ Scan(dest ...any) error }) (*Observation, error) {
+	var obs Observation
+	var sessionID sql.NullString
+	var cAt, uAt string
+	err := scanner.Scan(&obs.ID, &sessionID, &obs.Type, &obs.Title, &obs.Project, &obs.Scope, &obs.TopicKey, &obs.Content, &obs.RevisionCount, &cAt, &uAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	obs.SessionID = sessionID.String
+	obs.CreatedAt, _ = time.Parse(time.RFC3339, cAt)
+	obs.UpdatedAt, _ = time.Parse(time.RFC3339, uAt)
+	return &obs, nil
+}
+
+// refreshFTS rewrites the FTS row for a single observation. Call inside a tx.
+func refreshFTS(tx *sql.Tx, id string) error {
+	if _, err := tx.Exec(`DELETE FROM observations_fts WHERE rowid = (SELECT rowid FROM observations WHERE id = ?)`, id); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`
+		INSERT INTO observations_fts (rowid, project, scope, topic_key, title, content)
+		SELECT rowid, project, scope, topic_key, title, content FROM observations WHERE id = ?
+	`, id)
+	return err
+}
+
+func (s *LocalStore) SaveObservation(obs *Observation) error {
+	return s.saveObservation(obs, "manual", true)
+}
+
 func (s *LocalStore) SaveObservationFromSync(obs *Observation) error {
+	return s.saveObservation(obs, "remote", false)
+}
+
+// saveObservation upserts an observation and refreshes its FTS row. When
+// logMut is true the write is recorded in sync_mutations for outbound sync;
+// inbound sync writes bypass logging to avoid echo loops.
+func (s *LocalStore) saveObservation(obs *Observation, source string, logMut bool) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	var existingID string
-	err = tx.QueryRow(`SELECT id FROM observations WHERE id = ?`, obs.ID).Scan(&existingID)
-	exists := err != sql.ErrNoRows
+	sessionID := obs.SessionID
+	if sessionID == "" {
+		sessionID = source
+	}
 
 	cAt := obs.CreatedAt.Format(time.RFC3339)
 	uAt := obs.UpdatedAt.Format(time.RFC3339)
 
 	_, err = tx.Exec(`
-		INSERT INTO observations (id, session_id, project, scope, topic, content, revision_count, created_at, updated_at)
-		VALUES (?, 'remote', ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO observations (id, session_id, type, title, project, scope, topic_key, content, revision_count, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			type = excluded.type,
+			title = excluded.title,
 			project = excluded.project,
 			scope = excluded.scope,
-			topic = excluded.topic,
+			topic_key = excluded.topic_key,
 			content = excluded.content,
 			revision_count = excluded.revision_count,
 			updated_at = excluded.updated_at
-	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content, obs.RevisionCount, cAt, uAt)
+	`, obs.ID, sessionID, obs.Type, obs.Title, obs.Project, obs.Scope, obs.TopicKey, obs.Content, obs.RevisionCount, cAt, uAt)
 	if err != nil {
 		return err
 	}
 
-	if exists {
-		_, err = tx.Exec(`DELETE FROM observations_fts WHERE rowid = (SELECT rowid FROM observations WHERE id = ?)`, obs.ID)
-		if err != nil {
+	if err := refreshFTS(tx, obs.ID); err != nil {
+		return err
+	}
+
+	if logMut {
+		if err := s.logMutation(tx, "observations", obs.ID, "upsert", obs); err != nil {
 			return err
 		}
 	}
 
-	_, err = tx.Exec(`
-		INSERT INTO observations_fts (rowid, project, scope, topic, content)
-		VALUES ((SELECT rowid FROM observations WHERE id = ?), ?, ?, ?, ?)
-	`, obs.ID, obs.Project, obs.Scope, obs.Topic, obs.Content)
-	if err != nil {
-		return err
-	}
-
-	// BYPASS mutation logging
 	return tx.Commit()
 }
 
@@ -399,7 +418,7 @@ func (s *LocalStore) DeleteObservationFromSync(id string) error {
 
 func (s *LocalStore) SearchObservations(query string, project string) ([]Observation, error) {
 	sqlQuery := `
-		SELECT o.id, o.project, o.scope, o.topic, o.content, o.revision_count, o.created_at, o.updated_at 
+		SELECT ` + prefixColumns("o", obsColumns) + `
 		FROM observations_fts fts
 		JOIN observations o ON o.rowid = fts.rowid
 		WHERE observations_fts MATCH ?`
@@ -430,4 +449,13 @@ func (s *LocalStore) SearchObservations(query string, project string) ([]Observa
 		results = append(results, *obs)
 	}
 	return results, nil
+}
+
+// prefixColumns qualifies a comma-separated column list with a table alias.
+func prefixColumns(alias, cols string) string {
+	parts := strings.Split(cols, ", ")
+	for i, p := range parts {
+		parts[i] = alias + "." + p
+	}
+	return strings.Join(parts, ", ")
 }
