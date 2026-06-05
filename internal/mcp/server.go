@@ -92,12 +92,14 @@ func (s *Server) registerTools() {
 		{"mem_compare", "Compare observations", s.handleMemJudge}, // Lite mode aliases this
 		{"mem_context", "Fetch context for current state", s.handleMemContext},
 		{"mem_current_project", "Get current project directory", s.handleMemCurrentProject},
+		{"mem_delete", "Soft-delete a memory observation", s.handleMemDelete},
 		{"mem_doctor", "Run diagnostics", s.handleMemDoctor},
 		{"mem_judge", "Evaluate decision against rules", s.handleMemJudge},
-		{"mem_save_prompt", "Save a prompt template", s.handleMemSavePrompt},
+		{"mem_save_prompt", "Record a user prompt for context tracking", s.handleMemSavePrompt},
 		{"mem_session_start", "Start a new session", s.handleMemSessionStart},
 		{"mem_session_end", "End current session", s.handleMemSessionEnd},
 		{"mem_session_summary", "Summarize current session", s.handleMemSessionSummary},
+		{"mem_stats", "Get memory statistics", s.handleMemStats},
 		{"mem_suggest_topic_key", "Suggest a topic key for content", s.handleMemSuggestTopicKey},
 		{"mem_update", "Update an existing observation", s.handleMemUpdate},
 	}
@@ -302,13 +304,62 @@ func (s *Server) handleMemDoctor(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(string(b)), nil
 }
 
+// handleMemSavePrompt records a user prompt directly to user_prompts (NOT observations).
+// It MUST NOT route through handleMemSave.
 func (s *Server) handleMemSavePrompt(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, _ := request.Params.Arguments.(map[string]interface{})
-	args["topic_key"] = "user-prompt"
-	if _, ok := args["type"]; !ok {
-		args["type"] = "prompt"
+	content, _ := args["content"].(string)
+	if content == "" {
+		return mcp.NewToolResultError("content is required"), nil
 	}
-	return s.handleMemSave(ctx, request)
+	project, _ := args["project"].(string)
+	sessionID, _ := args["session_id"].(string)
+
+	id, err := s.store.AddPrompt(store.AddPromptParams{
+		Content:   content,
+		Project:   project,
+		SessionID: sessionID,
+	})
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("save prompt error: %v", err)), nil
+	}
+	resp := map[string]interface{}{
+		"status": "saved",
+		"id":     fmt.Sprintf("%d", id),
+	}
+	b, _ := json.Marshal(resp)
+	return mcp.NewToolResultText(string(b)), nil
+}
+
+// handleMemDelete soft-deletes an observation by id.
+func (s *Server) handleMemDelete(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args, _ := request.Params.Arguments.(map[string]interface{})
+	id, _ := args["id"].(string)
+	if id == "" {
+		return mcp.NewToolResultError("id is required"), nil
+	}
+	hard := false
+	if h, ok := args["hard"].(bool); ok {
+		hard = h
+	}
+	if err := s.store.DeleteObservation(id, hard); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("delete error: %v", err)), nil
+	}
+	mode := "soft-deleted"
+	if hard {
+		mode = "hard-deleted"
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Observation %s %s", id, mode)), nil
+}
+
+// handleMemStats returns memory statistics.
+func (s *Server) handleMemStats(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	stats, err := s.store.Stats()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("stats error: %v", err)), nil
+	}
+	b, _ := json.Marshal(stats)
+	return mcp.NewToolResultText(string(b)), nil
 }
 
 func (s *Server) handleMemSessionStart(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
