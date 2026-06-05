@@ -136,7 +136,7 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Pass project through as-is. An empty project is normalized to NULL by the
-	// store (Engram wire contract: project-less observations are globally scoped).
+	// store ( contract: project-less observations are globally scoped).
 	project, _ := args["project"].(string)
 
 	scope, _ := args["scope"].(string)
@@ -144,7 +144,7 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		scope = "project"
 	}
 
-	// Resolve the stable upsert key. Engram/SpecAI send `topic_key`; accept the
+	// Resolve the stable upsert key. sdd-memory/SpecAI send `topic_key`; accept the
 	// legacy `topic` as a fallback so older callers keep working. Do NOT fall
 	// back to `title`: Branch A (topic_key revision) must only fire when the
 	// caller explicitly supplies a key, otherwise same-titled observations would

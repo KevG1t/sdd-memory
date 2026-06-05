@@ -22,7 +22,7 @@ const obsColumns = `id, sync_id, session_id, type, title, project, scope, topic_
 // dedupeWindow is the look-back period for hash-based dedup. An observation
 // with the same normalized_hash + project + scope + type + title created within
 // this window is treated as a duplicate rather than a new record.
-// Mirrors Engram's default (15 minutes). Kept as a package-level constant
+// default (15 minutes). Kept as a package-level constant
 // because sdd-memory has no Config struct and adding one is deferred.
 const dedupeWindow = 15 * time.Minute
 
@@ -32,7 +32,7 @@ func dedupeWindowArg() string {
 }
 
 // normalizedHash returns a SHA-256 hex digest of content after collapsing
-// whitespace and lowercasing. Matches Engram's hashNormalized function so
+// whitespace and lowercasing. Matches sdd-memory's hashNormalized function so
 // dedup semantics are consistent when observations are synced cross-machine.
 func normalizedHash(content string) string {
 	normalized := strings.ToLower(strings.Join(strings.Fields(content), " "))
@@ -128,7 +128,7 @@ func (s *LocalStore) Init() error {
 		}
 	}
 
-	// Phase 1 migrations for databases created before the Engram-aligned contract.
+	// Phase 1 migrations for databases created before the sdd-memory-aligned contract.
 	// ALTER TABLE ADD COLUMN is idempotent here only by ignoring the error when
 	// the column already exists.
 	for _, alter := range []string{
@@ -143,7 +143,7 @@ func (s *LocalStore) Init() error {
 	// Carry forward any legacy `topic` column values into topic_key.
 	s.db.Exec(`UPDATE observations SET topic_key = topic WHERE topic_key = '' AND topic IS NOT NULL`)
 
-	// Phase 2 migrations: Engram engine port columns.
+	// Phase 2 migrations: sdd-memory engine port columns.
 	// Each ALTER TABLE is ignored if the column already exists (SQLite returns
 	// "duplicate column name" which we swallow). The UPDATE migrations are
 	// safe to run multiple times (they are no-ops on already-migrated rows).
@@ -670,9 +670,12 @@ func (s *LocalStore) SaveObservationFromSync(obs *Observation) error {
 
 // DeleteObservation soft-deletes (default) or hard-deletes an observation.
 // Soft-delete: sets deleted_at = now(), removes the FTS row, enqueues a
-//   sync_mutation (upsert) so the deletion propagates to cloud.
+//
+//	sync_mutation (upsert) so the deletion propagates to cloud.
+//
 // Hard-delete: removes the row and the FTS row. Does NOT enqueue a sync
-//   mutation (used for local cleanup only).
+//
+//	mutation (used for local cleanup only).
 func (s *LocalStore) DeleteObservation(id string, hard bool) error {
 	tx, err := s.db.Begin()
 	if err != nil {
