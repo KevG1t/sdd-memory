@@ -560,6 +560,41 @@ func TestSoftDelete_FTSRemoved(t *testing.T) {
 	}
 }
 
+func TestSoftDelete_ObservationsBySession(t *testing.T) {
+	s := newTestStore(t)
+
+	if err := s.CreateSession("sess-1", "p"); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	keepID, _ := s.AddObservation(AddObservationParams{
+		SessionID: "sess-1", Type: "note", Title: "Keep", Content: "kept row", Project: "p", Scope: "project",
+	})
+	delID, _ := s.AddObservation(AddObservationParams{
+		SessionID: "sess-1", Type: "note", Title: "Drop", Content: "dropped row", Project: "p", Scope: "project",
+	})
+
+	if err := s.DeleteObservation(delID, false); err != nil {
+		t.Fatalf("DeleteObservation(soft): %v", err)
+	}
+
+	obs, err := s.ObservationsBySession("sess-1")
+	if err != nil {
+		t.Fatalf("ObservationsBySession: %v", err)
+	}
+	if len(obs) != 1 {
+		t.Fatalf("ObservationsBySession: got %d rows, want 1", len(obs))
+	}
+	if obs[0].ID != keepID {
+		t.Errorf("ObservationsBySession returned wrong row: got %s, want %s", obs[0].ID, keepID)
+	}
+	for _, o := range obs {
+		if o.ID == delID {
+			t.Error("soft-deleted obs found in ObservationsBySession")
+		}
+	}
+}
+
 func TestHardDelete(t *testing.T) {
 	s := newTestStore(t)
 

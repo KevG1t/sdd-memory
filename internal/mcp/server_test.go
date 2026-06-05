@@ -201,11 +201,10 @@ func TestHandleMemGetObservation_NotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handleMemGetObservation error: %v", err)
 	}
-	// The response will be an error result — check the text says not found.
-	// (callTool returns nil map for error results)
+	// callTool returns a nil map for error results; a soft-deleted observation
+	// must surface as a not-found error, so getResp must be nil.
 	if getResp != nil {
-		// If it returned a map, the observation should not be there.
-		// An error result from mcp.NewToolResultError would have IsError=true.
+		t.Errorf("expected nil (error result) for soft-deleted observation, got %v", getResp)
 	}
 	// Verify directly via store.
 	obs, _ := srv.store.GetObservation(id)

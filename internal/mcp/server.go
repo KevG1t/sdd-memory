@@ -121,6 +121,8 @@ func (s *Server) registerTools() {
 				"summary":    map[string]interface{}{"type": "string"},
 				"title":      map[string]interface{}{"type": "string"},
 				"type":       map[string]interface{}{"type": "string"},
+				"tool_name":  map[string]interface{}{"type": "string"},
+				"hard":       map[string]interface{}{"type": "boolean"},
 			},
 		}
 		s.mcpServer.AddTool(tool, t.fn)
@@ -133,11 +135,9 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 
-	// Default to general project if empty
+	// Pass project through as-is. An empty project is normalized to NULL by the
+	// store (Engram wire contract: project-less observations are globally scoped).
 	project, _ := args["project"].(string)
-	if project == "" {
-		project = "default"
-	}
 
 	scope, _ := args["scope"].(string)
 	if scope == "" {
@@ -145,16 +145,14 @@ func (s *Server) handleMemSave(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Resolve the stable upsert key. Engram/SpecAI send `topic_key`; accept the
-	// legacy `topic` and finally `title` as fallbacks so older callers keep
-	// working.
+	// legacy `topic` as a fallback so older callers keep working. Do NOT fall
+	// back to `title`: Branch A (topic_key revision) must only fire when the
+	// caller explicitly supplies a key, otherwise same-titled observations would
+	// silently overwrite each other.
 	topicKey, _ := args["topic_key"].(string)
 	title, _ := args["title"].(string)
 	if topicKey == "" {
-		if t, _ := args["topic"].(string); t != "" {
-			topicKey = t
-		} else {
-			topicKey = title
-		}
+		topicKey, _ = args["topic"].(string)
 	}
 
 	obsType, _ := args["type"].(string)
