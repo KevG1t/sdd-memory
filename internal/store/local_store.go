@@ -584,6 +584,14 @@ func (s *LocalStore) addObservationTx(tx *sql.Tx, p AddObservationParams, logMut
 	sessionID := p.SessionID
 	if sessionID == "" {
 		sessionID = "manual"
+	} else if sessionID != "manual" {
+		// Ensure session exists in the sessions table so it shows up in the TUI
+		proj := "default"
+		if p.Project != "" {
+			proj = p.Project
+		}
+		_, _ = tx.Exec(`INSERT OR IGNORE INTO sessions (id, project, started_at) VALUES (?, ?, ?)`,
+			sessionID, proj, now)
 	}
 
 	_, err := tx.Exec(`
